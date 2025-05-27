@@ -56,6 +56,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="App\Config\ValidateStructure.ps1" />
     <Compile Include="App\Forms\AI_Gen_Workflow_Wrapper.designer.ps1">
       <SubType>Code</SubType>
       <DependentUpon>App\Forms\AI_Gen_Workflow_Wrapper.ps1</DependentUpon>

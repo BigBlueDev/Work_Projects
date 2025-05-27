@@ -59,6 +59,98 @@ foreach ($dir in $requiredDirectories) {
         }
     }
 }
+# Add these functions to your existing Globals.ps1 file
+
+# Enhanced path management functions
+function Get-ApplicationPath {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$RelativePath,
+        
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("Root", "MainForm", "App", "Forms", "SubForms", "Resources", "Config", "Logs", "Data")]
+        [string]$BaseLocation = "Root"
+    )
+    
+    if ($Global:Paths -and $Global:Paths.ContainsKey($BaseLocation)) {
+        return Join-Path $Global:Paths[$BaseLocation] $RelativePath
+    }
+    else {
+        # Fallback to script root if paths not initialized
+        $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
+        return Join-Path $scriptRoot $RelativePath
+    }
+}
+
+# Function to load SubForms dynamically
+function Show-SubForm {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$FormName,
+        
+        [Parameter(Mandatory=$false)]
+        [hashtable]$Parameters = @{}
+    )
+    
+    $designerPath = Get-ApplicationPath -RelativePath "$FormName.designer.ps1" -BaseLocation "SubForms"
+    $logicPath = Get-ApplicationPath -RelativePath "$FormName.ps1" -BaseLocation "SubForms"
+    
+    try {
+        # Load designer if exists
+        if (Test-Path $designerPath) {
+            . $designerPath
+        }
+        
+        # Load logic if exists
+        if (Test-Path $logicPath) {
+            . $logicPath
+        }
+        
+        # Try to show the form (assumes form variable follows naming convention)
+        $formVariable = Get-Variable -Name $FormName -ErrorAction SilentlyContinue
+        if ($formVariable) {
+            return $formVariable.Value.ShowDialog()
+        }
+        else {
+            Write-Warning "Form variable '$FormName' not found after loading"
+            return $null
+        }
+    }
+    catch {
+        Write-Error "Failed to load SubForm '$FormName': $_"
+        return $null
+    }
+}
+
+# Function to get resource file paths
+function Get-ResourcePath {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$ResourceName
+    )
+    
+    return Get-ApplicationPath -RelativePath $ResourceName -BaseLocation "Resources"
+}
+
+# Function to get config file paths
+function Get-ConfigPath {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$ConfigName
+    )
+    
+    return Get-ApplicationPath -RelativePath $ConfigName -BaseLocation "Config"
+}
+
+# Function to get data file paths
+function Get-DataPath {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$DataFileName
+    )
+    
+    return Get-ApplicationPath -RelativePath $DataFileName -BaseLocation "Data"
+}
 
 #endregion
 
