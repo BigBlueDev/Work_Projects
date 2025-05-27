@@ -15,7 +15,7 @@
     <RequireElevation>False</RequireElevation>
     <PackageModules>False</PackageModules>
     <HighDPISupport>False</HighDPISupport>
-    <StartupFile>Launch.ps1</StartupFile>
+    <StartupFile>App\Launch.ps1</StartupFile>
     <WorkingDirectory>gistics Agency\Documents\All Scripts\GUI Projects\AI_Gen_Workflow_Wrapper\</WorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -56,35 +56,40 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Resources.resx" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="AI_Gen_Workflow_Wrapper.designer.ps1">
+    <Compile Include="App\Forms\AI_Gen_Workflow_Wrapper.designer.ps1">
       <SubType>Code</SubType>
-      <DependentUpon>AI_Gen_Workflow_Wrapper.ps1</DependentUpon>
+      <DependentUpon>App\Forms\AI_Gen_Workflow_Wrapper.ps1</DependentUpon>
     </Compile>
-    <Compile Include="AI_Gen_Workflow_Wrapper.ps1">
+    <Compile Include="App\Forms\AI_Gen_Workflow_Wrapper.ps1">
       <SubType>Form</SubType>
       <Resource>True</Resource>
     </Compile>
-    <Compile Include="EditParameterForm.designer.ps1">
+    <Compile Include="App\Forms\Globals.ps1" />
+    <Compile Include="App\Launch.ps1" />
+    <Compile Include="App\Forms\SubForm\EditParam.designer.ps1">
       <SubType>Code</SubType>
-      <DependentUpon>EditParameterForm.ps1</DependentUpon>
+      <DependentUpon>App\Forms\SubForm\EditParam.ps1</DependentUpon>
     </Compile>
-    <Compile Include="EditParameterForm.ps1">
+    <Compile Include="App\Forms\SubForm\EditParam.ps1">
       <SubType>Form</SubType>
-      <Resource>True</Resource>
     </Compile>
-    <Compile Include="Globals.ps1" />
-    <Compile Include="Launch.ps1" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="AI_Gen_Workflow_Wrapper.resx">
-      <DependentUpon>AI_Gen_Workflow_Wrapper.ps1</DependentUpon>
+    <EmbeddedResource Include="App\Forms\AI_Gen_Workflow_Wrapper.resx">
+      <DependentUpon>App\Forms\AI_Gen_Workflow_Wrapper.ps1</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="EditParameterForm.resx">
-      <DependentUpon>EditParameterForm.ps1</DependentUpon>
+    <EmbeddedResource Include="App\Forms\SubForm\EditParam.resx">
+      <DependentUpon>App\Forms\SubForm\EditParam.ps1</DependentUpon>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="App\Forms\" />
+    <Folder Include="App\Forms\SubForm\" />
+    <Folder Include="App\Logs\" />
+    <Folder Include="App\" />
+    <Folder Include="App\Reports\" />
+    <Folder Include="App\Scripts\" />
+    <Folder Include="App\Config\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\PowerShell Tools for Visual Studio\PowerShellTools.targets" Condition="Exists('$(MSBuildExtensionsPath)\PowerShell Tools for Visual Studio\PowerShellTools.targets')" />
 </Project>

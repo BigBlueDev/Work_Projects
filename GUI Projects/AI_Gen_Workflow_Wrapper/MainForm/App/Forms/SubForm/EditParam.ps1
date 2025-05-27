@@ -1,4 +1,4 @@
-﻿# EditParameterForm.ps1
+﻿# EditParam.ps1
 
 $EditParameterForm_Load = {
     try {
