@@ -88,6 +88,8 @@
     <Folder Include="App\Forms\SubForm\" />
     <Folder Include="App\Logs\" />
     <Folder Include="App\" />
+    <Folder Include="App\Data\" />
+    <Folder Include="App\Resources\" />
     <Folder Include="App\Reports\" />
     <Folder Include="App\Scripts\" />
     <Folder Include="App\Config\" />
