@@ -1145,7 +1145,7 @@ function Add-NewScript {
         $script:openFileDialog1.Filter = "PowerShell Scripts (*.ps1)|*.ps1|All Files (*.*)|*.*"
         $script:openFileDialog1.Title = "Select PowerShell Script"
         $script:openFileDialog1.Multiselect = $false
-        $script:openFileDialog1.InitialDirectory = $script:AppRoot
+        $script:openFileDialog1.InitialDirectory = Get-ApplicationPath -RelativePath "" -BaseLocation "Root"
         $script:openFileDialog1.RestoreDirectory = $true
         
         Write-Log "Showing file dialog..." -Level "DEBUG"
@@ -1953,7 +1953,7 @@ function Edit-SelectedParameter {
         $script:Config = $script:Config
         
         # Load and show edit parameter form
-        $editFormPath = Join-Path -Path $PSScriptRoot -ChildPath "EditParameterForm.ps1"
+        $editFormPath = Get-ApplicationPath -RelativePath "EditParameterForm.ps1" -BaseLocation "SubForms"
         if (Test-Path -Path $editFormPath) {
             . $editFormPath
             

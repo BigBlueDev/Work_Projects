@@ -8,15 +8,15 @@
     <AssemblyName>MyApplication</AssemblyName>
     <Name>AI_Gen_Workflow_Wrapper</Name>
     <PackageAsExecutable>False</PackageAsExecutable>
-    <PackageEntryPoint>global_init.ps1</PackageEntryPoint>
+    <PackageEntryPoint>launch.ps1</PackageEntryPoint>
     <Bundle>False</Bundle>
     <Obfuscate>False</Obfuscate>
     <HideConsoleWindow>False</HideConsoleWindow>
     <RequireElevation>False</RequireElevation>
     <PackageModules>False</PackageModules>
     <HighDPISupport>False</HighDPISupport>
-    <StartupFile>App\Launch.ps1</StartupFile>
-    <WorkingDirectory>gistics Agency\Documents\All Scripts\GUI Projects\AI_Gen_Workflow_Wrapper\</WorkingDirectory>
+    <StartupFile>Launch.ps1</StartupFile>
+    <WorkingDirectory>C:\Users\DMM0090\OneDrive - Defense Logistics Agency\Documents\All Scripts\Work_Projects\GUI Projects\AI_Gen_Workflow_Wrapper</WorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -56,7 +56,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="App\Config\ValidateStructure.ps1" />
+    <Compile Include="App\Config\ValidateStructure.ps1">
+      <Resource>True</Resource>
+    </Compile>
     <Compile Include="App\Forms\AI_Gen_Workflow_Wrapper.designer.ps1">
       <SubType>Code</SubType>
       <DependentUpon>App\Forms\AI_Gen_Workflow_Wrapper.ps1</DependentUpon>
@@ -65,14 +67,19 @@
       <SubType>Form</SubType>
       <Resource>True</Resource>
     </Compile>
-    <Compile Include="App\Forms\Globals.ps1" />
-    <Compile Include="App\Launch.ps1" />
+    <Compile Include="App\Forms\Globals.ps1">
+      <Resource>True</Resource>
+    </Compile>
     <Compile Include="App\Forms\SubForm\EditParam.designer.ps1">
       <SubType>Code</SubType>
       <DependentUpon>App\Forms\SubForm\EditParam.ps1</DependentUpon>
     </Compile>
     <Compile Include="App\Forms\SubForm\EditParam.ps1">
       <SubType>Form</SubType>
+      <Resource>True</Resource>
+    </Compile>
+    <Compile Include="Launch.ps1">
+      <Resource>True</Resource>
     </Compile>
   </ItemGroup>
   <ItemGroup>
