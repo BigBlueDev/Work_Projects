@@ -1,0 +1,239 @@
+{
+  "VCenter": "daisv0tp231.dir.ad.dla.mil",
+  "HostName": "etespe0ps26.etc.dla.mil",
+  "VMs": [
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-20Enclave-EBS",
+          "MacAddress": "00:50:56:9e:ad:6c"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-80Enclave-ETCOPS",
+          "MacAddress": "00:50:56:be:25:c5"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-880BackEnc-ETCOPS",
+          "MacAddress": "00:50:56:be:6f:ab"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-80Enclave-ETCOPS",
+          "MacAddress": "00:50:56:be:10:10"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-80Enclave-ETCOPS",
+          "MacAddress": "00:50:56:9e:eb:79"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-27Enclave-EBS",
+          "MacAddress": "00:50:56:be:95:c8"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-800BackEnc-EBS",
+          "MacAddress": "00:50:56:be:f4:ba"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-80Enclave-ETCOPS",
+          "MacAddress": "00:50:56:be:73:ca"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-880BackEnc-ETCOPS",
+          "MacAddress": "00:50:56:be:75:3e"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:35:2a"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:4f:3a"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:6e:aa"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:44:90"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:0a:e0"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:6b:df"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:36:04"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:5c:fc"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:3d:a4"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:7d:8c"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:9e:5e:b9"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:9e:7a:1d"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:52:86"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:7d:41"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:7c:bb"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:58:b5"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:1f:32"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:7d:09"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:74:ed"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:61:ad"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:0b:41"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:02:8f"
+        }
+      ]
+    },
+    {
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:3c:85"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:58:84"
+        }
+      ]
+    }
+  ]
+}

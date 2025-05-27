@@ -1,0 +1,93 @@
+﻿<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>6CAFC0C6-A428-4d30-A9F9-700E829FEA51</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>MyApplication</RootNamespace>
+    <AssemblyName>MyApplication</AssemblyName>
+    <Name>AI_Gen_Workflow_Wrapper</Name>
+    <PackageAsExecutable>False</PackageAsExecutable>
+    <PackageEntryPoint>global_init.ps1</PackageEntryPoint>
+    <Bundle>False</Bundle>
+    <Obfuscate>False</Obfuscate>
+    <HideConsoleWindow>False</HideConsoleWindow>
+    <RequireElevation>False</RequireElevation>
+    <PackageModules>False</PackageModules>
+    <HighDPISupport>False</HighDPISupport>
+    <StartupFile>Launch.ps1</StartupFile>
+    <WorkingDirectory>gistics Agency\Documents\All Scripts\GUI Projects\AI_Gen_Workflow_Wrapper\</WorkingDirectory>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+      <Name>System</Name>
+      <AssemblyName>System.dll</AssemblyName>
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\System.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Name>System.Drawing</Name>
+      <AssemblyName>System.Drawing.dll</AssemblyName>
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\System.Drawing.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+      <Name>System.Windows.Forms</Name>
+      <AssemblyName>System.Windows.Forms.dll</AssemblyName>
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\System.Windows.Forms.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Resources.resx" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AI_Gen_Workflow_Wrapper.designer.ps1">
+      <SubType>Code</SubType>
+      <DependentUpon>AI_Gen_Workflow_Wrapper.ps1</DependentUpon>
+    </Compile>
+    <Compile Include="AI_Gen_Workflow_Wrapper.ps1">
+      <SubType>Form</SubType>
+      <Resource>True</Resource>
+    </Compile>
+    <Compile Include="EditParameterForm.designer.ps1">
+      <SubType>Code</SubType>
+      <DependentUpon>EditParameterForm.ps1</DependentUpon>
+    </Compile>
+    <Compile Include="EditParameterForm.ps1">
+      <SubType>Form</SubType>
+      <Resource>True</Resource>
+    </Compile>
+    <Compile Include="Globals.ps1" />
+    <Compile Include="Launch.ps1" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="AI_Gen_Workflow_Wrapper.resx">
+      <DependentUpon>AI_Gen_Workflow_Wrapper.ps1</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="EditParameterForm.resx">
+      <DependentUpon>EditParameterForm.ps1</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Button Dialogues\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath)\PowerShell Tools for Visual Studio\PowerShellTools.targets" Condition="Exists('$(MSBuildExtensionsPath)\PowerShell Tools for Visual Studio\PowerShellTools.targets')" />
+</Project>

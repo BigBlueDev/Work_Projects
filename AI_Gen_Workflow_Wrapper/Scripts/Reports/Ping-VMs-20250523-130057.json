@@ -1,0 +1,373 @@
+{
+  "VCenter": "daisv0tp231.dir.ad.dla.mil",
+  "HostName": "etespe0ps26.etc.dla.mil",
+  "VMs": [
+    {
+      "Name": "DMDCVWPPSD01",
+      "PowerState": "PoweredOff",
+      "GuestOS": null,
+      "DNSName": null,
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-20Enclave-EBS",
+          "MacAddress": "00:50:56:9e:ad:6c",
+          "IPAddress": null,
+          "PingResult": "No IP"
+        }
+      ]
+    },
+    {
+      "Name": "ETISVW0P033",
+      "PowerState": "PoweredOff",
+      "GuestOS": null,
+      "DNSName": null,
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-80Enclave-ETCOPS",
+          "MacAddress": "00:50:56:be:25:c5",
+          "IPAddress": null,
+          "PingResult": "No IP"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-880BackEnc-ETCOPS",
+          "MacAddress": "00:50:56:be:6f:ab",
+          "IPAddress": null,
+          "PingResult": "No IP"
+        }
+      ]
+    },
+    {
+      "Name": "ETDCVW0P003",
+      "PowerState": "PoweredOff",
+      "GuestOS": null,
+      "DNSName": null,
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-80Enclave-ETCOPS",
+          "MacAddress": "00:50:56:be:10:10",
+          "IPAddress": null,
+          "PingResult": "No IP"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-80Enclave-ETCOPS",
+          "MacAddress": "00:50:56:9e:eb:79",
+          "IPAddress": null,
+          "PingResult": "No IP"
+        }
+      ]
+    },
+    {
+      "Name": "ETASVRTPE57",
+      "PowerState": "PoweredOff",
+      "GuestOS": null,
+      "DNSName": null,
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-27Enclave-EBS",
+          "MacAddress": "00:50:56:be:95:c8",
+          "IPAddress": null,
+          "PingResult": "No IP"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-800BackEnc-EBS",
+          "MacAddress": "00:50:56:be:f4:ba",
+          "IPAddress": null,
+          "PingResult": "No IP"
+        }
+      ]
+    },
+    {
+      "Name": "ETDCVW0P002",
+      "PowerState": "PoweredOff",
+      "GuestOS": null,
+      "DNSName": null,
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-80Enclave-ETCOPS",
+          "MacAddress": "00:50:56:be:73:ca",
+          "IPAddress": null,
+          "PingResult": "No IP"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-880BackEnc-ETCOPS",
+          "MacAddress": "00:50:56:be:75:3e",
+          "IPAddress": null,
+          "PingResult": "No IP"
+        }
+      ]
+    },
+    {
+      "Name": "ETWSVWTPSZD",
+      "PowerState": "PoweredOn",
+      "GuestOS": "Microsoft Windows Server 2022 (64-bit)",
+      "DNSName": "ETWSVWTPSZD.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:35:2a",
+          "IPAddress": "131.70.85.20",
+          "PingResult": "Success"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:4f:3a",
+          "IPAddress": "10.50.185.20",
+          "PingResult": "Failed"
+        }
+      ]
+    },
+    {
+      "Name": "ETWSVWTPSZL",
+      "PowerState": "PoweredOn",
+      "GuestOS": "Microsoft Windows Server 2022 (64-bit)",
+      "DNSName": "ETWSVWTPSZL.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:6e:aa",
+          "IPAddress": "131.70.85.80",
+          "PingResult": "Success"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:44:90",
+          "IPAddress": "10.50.185.80",
+          "PingResult": "Failed"
+        }
+      ]
+    },
+    {
+      "Name": "ETWSVWTPSZA",
+      "PowerState": "PoweredOn",
+      "GuestOS": "Microsoft Windows Server 2022 (64-bit)",
+      "DNSName": "ETWSVWTPSZA.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:0a:e0",
+          "IPAddress": "131.70.85.17",
+          "PingResult": "Success"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:6b:df",
+          "IPAddress": "10.50.185.17",
+          "PingResult": "Failed"
+        }
+      ]
+    },
+    {
+      "Name": "ETWSVWTPSZK",
+      "PowerState": "PoweredOn",
+      "GuestOS": "Microsoft Windows Server 2022 (64-bit)",
+      "DNSName": "ETWSVWTPSZK.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:36:04",
+          "IPAddress": "131.70.85.27",
+          "PingResult": "Success"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:5c:fc",
+          "IPAddress": "10.50.185.27",
+          "PingResult": "Failed"
+        }
+      ]
+    },
+    {
+      "Name": "ETWSVWTPSZC",
+      "PowerState": "PoweredOn",
+      "GuestOS": "Microsoft Windows Server 2022 (64-bit)",
+      "DNSName": "ETWSVWTPSZC.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:3d:a4",
+          "IPAddress": "131.70.85.19",
+          "PingResult": "Success"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:7d:8c",
+          "IPAddress": "10.50.185.19",
+          "PingResult": "Failed"
+        }
+      ]
+    },
+    {
+      "Name": "ETWSVWTPSZF",
+      "PowerState": "PoweredOn",
+      "GuestOS": "Microsoft Windows Server 2022 (64-bit)",
+      "DNSName": "ETWSVWTPSZF.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:9e:5e:b9",
+          "IPAddress": "131.70.85.23",
+          "PingResult": "Success"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:9e:7a:1d",
+          "IPAddress": "169.254.243.55",
+          "PingResult": "Failed"
+        }
+      ]
+    },
+    {
+      "Name": "ETWSVWTPSZE",
+      "PowerState": "PoweredOn",
+      "GuestOS": "Microsoft Windows Server 2022 (64-bit)",
+      "DNSName": "ETWSVWTPSZE.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:52:86",
+          "IPAddress": "131.70.85.21",
+          "PingResult": "Success"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:7d:41",
+          "IPAddress": "10.50.185.21",
+          "PingResult": "Failed"
+        }
+      ]
+    },
+    {
+      "Name": "ETWSVWTPSZJ",
+      "PowerState": "PoweredOn",
+      "GuestOS": "Microsoft Windows Server 2022 (64-bit)",
+      "DNSName": "ETWSVWTPSZJ.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:7c:bb",
+          "IPAddress": "131.70.85.24",
+          "PingResult": "Success"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:58:b5",
+          "IPAddress": "169.254.12.135",
+          "PingResult": "Failed"
+        }
+      ]
+    },
+    {
+      "Name": "ETWSVWTPSZH",
+      "PowerState": "PoweredOn",
+      "GuestOS": "Microsoft Windows Server 2022 (64-bit)",
+      "DNSName": "ETWSVWTPSZH.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:1f:32",
+          "IPAddress": "131.70.85.22",
+          "PingResult": "Success"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:7d:09",
+          "IPAddress": "169.254.165.143",
+          "PingResult": "Failed"
+        }
+      ]
+    },
+    {
+      "Name": "ETWSVWTPSZ8",
+      "PowerState": "PoweredOn",
+      "GuestOS": "Microsoft Windows Server 2022 (64-bit)",
+      "DNSName": "ETWSVWTPSZ8.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:74:ed",
+          "IPAddress": "131.70.85.15",
+          "PingResult": "Success"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:61:ad",
+          "IPAddress": "10.50.185.15",
+          "PingResult": "Failed"
+        }
+      ]
+    },
+    {
+      "Name": "ETWSVWTPSZ9",
+      "PowerState": "PoweredOn",
+      "GuestOS": "Microsoft Windows Server 2022 (64-bit)",
+      "DNSName": "ETWSVWTPSZ9.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:0b:41",
+          "IPAddress": "131.70.85.16",
+          "PingResult": "Success"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:02:8f",
+          "IPAddress": "169.254.157.231",
+          "PingResult": "Failed"
+        }
+      ]
+    },
+    {
+      "Name": "ETASVWTPSZ1",
+      "PowerState": "PoweredOn",
+      "GuestOS": "Microsoft Windows Server 2022 (64-bit)",
+      "DNSName": "ETASVWTPSZ1.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "Name": "Network adapter 1",
+          "NetworkName": "dv-85DMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:3c:85",
+          "IPAddress": "131.70.85.81",
+          "PingResult": "Success"
+        },
+        {
+          "Name": "Network adapter 2",
+          "NetworkName": "dv-981BackDMZ-ETCDIR",
+          "MacAddress": "00:50:56:be:58:84",
+          "IPAddress": "10.50.185.81",
+          "PingResult": "Failed"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "SourceServer": "daisv0tp213.dir.ad.dla.mil",
+  "SourceUsername": "administrator@DLA-Test-Dev.local",
+  "SourcePassword": {
+    "Length": 17
+  },
+  "TargetServer": "daisv0tp231.dir.ad.dla.mil",
+  "TargetUsername": "administrator@DLA-Test-Dev.local",
+  "TargetPassword": {
+    "Length": 17
+  },
+  "UseCurrentCredentials": true,
+  "ExecutionTimeout": 300,
+  "MaxConcurrentJobs": 1,
+  "StopOnError": true,
+  "SkipConfirmation": false,
+  "Scripts": [
+    {
+      "Name": "01_Sample_Connect",
+      "Path": "C:\\Users\\DMM0090\\OneDrive - Defense Logistics Agency\\Documents\\All Scripts\\GUI Projects\\AI_Gen_Workflow_Wrapper\\Scripts\\01_Sample_Connect.ps1",
+      "Description": "",
+      "Enabled": true,
+      "Order": 1,
+      "Parameters": []
+    }
+  ],
+  "WindowState": "Normal",
+  "WindowSize": {
+    "Width": 1200,
+    "Height": 800
+  },
+  "WindowLocation": {
+    "X": -1560,
+    "Y": 123
+  },
+  "LastConfigSave": "2025-05-26T21:54:43.914812-04:00",
+  "Version": "1.0",
+  "LogLevel": "INFO",
+  "AutoSaveInterval": 300,
+  "BackupCount": 5,
+  "PowerCLIIgnoreInvalidCertificates": true,
+  "PowerCLIParticipateInCEIP": false
+}

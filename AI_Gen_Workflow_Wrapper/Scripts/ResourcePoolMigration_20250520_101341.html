@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>vSphere Resource Pool Migration Report</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --primary-color: #007bff;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --gray-color: #6c757d;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+            background-color: #f5f5f5;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .report-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .report-header h1 { margin: 0; font-size: 24px; }
+        .report-meta {
+            background-color: white;
+            border-radius: 5px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .report-meta dl {
+            display: grid;
+            grid-template-columns: 180px 1fr;
+            gap: 10px;
+            margin: 0;
+        }
+        .report-meta dt {
+            font-weight: bold;
+            color: var(--gray-color);
+        }
+        .report-meta dd { margin: 0; }
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .card-success { border-top: 4px solid var(--success-color); }
+        .card-warning { border-top: 4px solid var(--warning-color); }
+        .card-danger { border-top: 4px solid var(--danger-color); }
+        .card h2 {
+            margin-top: 0;
+            font-size: 16px;
+            color: var(--gray-color);
+            text-transform: uppercase;
+        }
+        .card .count {
+            font-size: 36px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .success { color: var(--success-color); }
+        .warning { color: var(--warning-color); }
+        .danger { color: var(--danger-color); }
+        .details-section {
+            background-color: white;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .details-section h2 {
+            margin-top: 0;
+            color: var(--dark-color);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background-color: var(--light-color);
+            font-weight: bold;
+        }
+        tr:hover { background-color: #f8f9fa; }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-badge.success { background-color: #e6f7ee; color: var(--success-color);}
+        .status-badge.warning { background-color: #fff8e6; color: #b38600;}
+        .status-badge.danger  { background-color: #f8e6e6; color: var(--danger-color);}
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: var(--gray-color);
+            font-size: 14px;
+        }
+        @media (max-width: 768px) {
+            .summary-cards { grid-template-columns: 1fr; }
+            .report-meta dl { grid-template-columns: 1fr; }
+            .report-meta dt { margin-top: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-header">
+        <h1>vSphere Resource Pool Migration Report</h1>
+    </div>
+    <div class="report-meta">
+        <dl>
+            <dt>Report Generated:</dt>
+            <dd>2025-05-20 10:13:44</dd>
+            <dt>Source vCenter:</dt>
+            <dd></dd>
+            <dt>Destination vCenter:</dt>
+            <dd>daisv0tp231.dir.ad.dla.mil</dd>
+            <dt>Target Cluster:</dt>
+            <dd>ETC_Dev-Compute</dd>
+            <dt>Input JSON:</dt>
+            <dd>.\Reports\rp-dev-etc_20250520_100140.json</dd>
+            <dt>Log File:</dt>
+            <dd>.\Import-ResourcePools.log</dd>
+            <dt>Execution Time:</dt>
+            <dd>00h:00m:03s</dd>
+        </dl>
+    </div>
+    <div class="summary-cards">
+        <div class="card card-success">
+            <h2>Pools Created</h2>
+            <div class="count success">29</div>
+        </div>
+        <div class="card card-warning">
+            <h2>Pools Skipped</h2>
+            <div class="count warning">0</div>
+        </div>
+        <div class="card card-danger">
+            <h2>Pools Failed</h2>
+            <div class="count danger">0</div>
+        </div>
+    </div>
+    
+    <div class="details-section">
+        <h2>Resource Pool Details</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th width="100">Status</th>
+                    <th>Name</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>STORES SA Mgt VMs</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>EBS Linux</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>EBS Phase 2B</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>STORES CM Build VMs</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>Ops Phase 2A</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>Ops Phase 0A</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>EBS Phase 1B</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>Enterprise - Storage & Backup</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>STORES DevOps Application VMs</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>Ops Phase 1B</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>Enterprise - SCOM</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>Ops Phase 2B</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>OPS Appliance</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>STORES Developer VMs</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>Ops Phase 0B</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>EBS Phase 1A</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>Ops Linux</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>EBS Phase 0A</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>STORES Web Server VMs</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>WKBCH.bsm.dla.mil</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>Powered Off</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>STORES SQL Server VMs</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>ETCOPS.etc.dla.mil</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>Ops Phase MB</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>Ops Phase 1A</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>EBS Phase 2A</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>ETCDIR.etc.dla.mil</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>Enterprise - Domain Controllers</td>
+                <td></td>
+            </tr>            <tr>
+                <td><span class="status-badge success">Created</span></td>
+                <td>Enterprise-Domain Controllers</td>
+                <td></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        Report generated by PowerCLI Resource Pool Migration Script
+    </div>
+</body>
+</html>

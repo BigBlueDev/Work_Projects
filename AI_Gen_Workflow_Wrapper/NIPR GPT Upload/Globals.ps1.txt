@@ -1,0 +1,413 @@
+# Globals.ps1
+# Global variables and initialization for vCenter Migration Workflow Manager
+
+# Add Windows Forms assembly
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+#region Global Variables
+
+# Application configuration
+$script:config = @{
+    AppName = "vCenter Migration Workflow Manager"
+    Version = "1.0.0"
+    LogPath = "$PSScriptRoot\logs\migration.log"
+    ConfigPath = "$PSScriptRoot\config\migration_config.json"
+    ScriptsFolder = "$PSScriptRoot\scripts"
+    FormPath = $PSScriptRoot  # Make sure this is set
+    ReportsPath = "$PSScriptRoot\reports"
+}
+
+# vCenter connection configuration
+$script:vCenterConfig = @{
+    SourcevCenter = ""
+    SourceUsername = ""
+    SourcePassword = ""
+    TargetvCenter = ""
+    TargetUsername = ""
+    TargetPassword = ""
+    UseCurrentCredentials = $false
+}
+
+# Execution settings
+$script:executionSettings = @{
+    StopOnError = $true
+    SkipConfirmation = $false
+    Timeout = 300  # 5 minutes
+    MaxConcurrentJobs = 1
+}
+
+# Migration scripts collection
+$script:migrationScripts = @()
+
+# Scripts collection
+$script:Scripts = @()
+
+# Define log folder path
+$script:config.ReportsPath = "$($PSScriptRoot)\reports"
+
+# Execution state
+$script:isExecuting = $false
+$script:runspace = $null
+$script:powershell = $null
+$script:handle = $null
+
+$script:PowerCLIExists = $false
+$script:PowerCLIExistsChecked = $false # Added to track the get-module check.
+$script:PowerCLIImported = $false
+
+$script:SourceVCenterConnection = $null
+$script:TargetVCenterConnection = $null
+#endregion
+
+#region Initialization Functions
+
+# Initialize application directories and files
+function Initialize-MigrationEnvironment {
+    # Create logs directory if it doesn't exist
+    if (-not (Test-Path -Path (Split-Path -Parent $script:config.LogPath))) {
+        New-Item -Path (Split-Path -Parent $script:config.LogPath) -ItemType Directory -Force | Out-Null
+        Write-Host "Created logs directory"
+    }
+    
+    # Create config directory if it doesn't exist
+    if (-not (Test-Path -Path (Split-Path -Parent $script:config.ConfigPath))) {
+        New-Item -Path (Split-Path -Parent $script:config.ConfigPath) -ItemType Directory -Force | Out-Null
+        Write-Host "Created config directory"
+    }
+    
+    # Create scripts directory if it doesn't exist
+    if (-not (Test-Path -Path $script:config.ScriptsFolder)) {
+        New-Item -Path $script:config.ScriptsFolder -ItemType Directory -Force | Out-Null
+        Write-Host "Created scripts directory"
+    }
+    
+    # Initialize log file if it doesn't exist
+    if (-not (Test-Path -Path $script:config.LogPath)) {
+        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        $logEntry = "[$timestamp] [INFO] Log file initialized for $($script:config.AppName) v$($script:config.Version)"
+        Set-Content -Path $script:config.LogPath -Value $logEntry
+        Write-Host "Initialized log file"
+    }
+    
+    Write-Host "Environment initialization complete"
+}
+
+# Write to log file
+function Write-Log {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Message,
+        
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("INFO", "WARNING", "ERROR", "DEBUG")]
+        [string]$Level = "INFO"
+    )
+    
+    try {
+        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        $logEntry = "[$timestamp] [$Level] $Message"
+        
+        # Check if we have access to the config
+        if ($null -eq $script:config -or [string]::IsNullOrEmpty($script:config.LogPath)) {
+            # Just write to console if no log path is available
+            switch ($Level) {
+                "INFO" { Write-Host $logEntry }
+                "WARNING" { Write-Host $logEntry -ForegroundColor Yellow }
+                "ERROR" { Write-Host $logEntry -ForegroundColor Red }
+                "DEBUG" { Write-Host $logEntry -ForegroundColor Cyan }
+            }
+            return
+        }
+        
+        # Ensure log directory exists
+        $logDir = Split-Path -Parent $script:config.LogPath
+        if (-not (Test-Path -Path $logDir)) {
+            New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+        }
+        
+        # Write to log file
+        Add-Content -Path $script:config.LogPath -Value $logEntry
+        
+        # Also write to console
+        switch ($Level) {
+            "INFO" { Write-Host $logEntry }
+            "WARNING" { Write-Host $logEntry -ForegroundColor Yellow }
+            "ERROR" { Write-Host $logEntry -ForegroundColor Red }
+            "DEBUG" { Write-Host $logEntry -ForegroundColor Cyan }
+        }
+    }
+    catch {
+        # If logging fails, at least write to console
+        Write-Host "[$timestamp] [ERROR] Failed to write to log: $_" -ForegroundColor Red
+        Write-Host $logEntry -ForegroundColor Gray
+    }
+}
+
+# Load configuration from file
+function Load-MigrationConfig {
+    if (Test-Path -Path $script:config.ConfigPath) {
+        try {
+            Write-Log "Loading configuration from $($script:config.ConfigPath)" -Level "DEBUG"
+            
+            $configData = Get-Content -Path $script:config.ConfigPath -Raw | ConvertFrom-Json
+            
+            # Load vCenter configuration
+            if ($configData.vCenterConfig) {
+                $script:vCenterConfig.SourcevCenter = $configData.vCenterConfig.SourcevCenter
+                $script:vCenterConfig.SourceUsername = $configData.vCenterConfig.SourceUsername
+                $script:vCenterConfig.SourcePassword = $configData.vCenterConfig.SourcePassword
+                $script:vCenterConfig.TargetvCenter = $configData.vCenterConfig.TargetvCenter
+                $script:vCenterConfig.TargetUsername = $configData.vCenterConfig.TargetUsername
+                $script:vCenterConfig.TargetPassword = $configData.vCenterConfig.TargetPassword
+                $script:vCenterConfig.UseCurrentCredentials = $configData.vCenterConfig.UseCurrentCredentials
+            }
+            
+            # Load execution settings
+            if ($configData.executionSettings) {
+                $script:executionSettings.StopOnError = $configData.executionSettings.StopOnError
+                $script:executionSettings.SkipConfirmation = $configData.executionSettings.SkipConfirmation
+                $script:executionSettings.Timeout = $configData.executionSettings.Timeout
+                $script:executionSettings.MaxConcurrentJobs = $configData.executionSettings.MaxConcurrentJobs
+            }
+            
+            # Load scripts
+            if ($configData.Scripts) {
+                $script:Scripts = @()
+                foreach ($scriptData in $configData.Scripts) {
+                    $script:Scripts += @{
+                        Order = $scriptData.Order
+                        Name = $scriptData.Name
+                        Path = $scriptData.Path
+                        Description = $scriptData.Description
+                        Enabled = $scriptData.Enabled
+                        Parameters = $scriptData.Parameters
+                    }
+                }
+                Write-Log "Loaded $($script:Scripts.Count) scripts" -Level "DEBUG"
+            }
+            
+            Write-Log "Configuration loaded successfully" -Level "INFO"
+            return $true
+        }
+        catch {
+            Write-Log "Failed to load configuration: $($_.Exception.Message)" -Level "ERROR"
+            Write-Log "Stack trace: $($_.ScriptStackTrace)" -Level "ERROR"
+            return $false
+        }
+    }
+    else {
+        Write-Log "First run detected - creating default configuration" -Level "INFO"
+        # Create and save default configuration
+        Save-MigrationConfig | Out-Null
+        return $true
+    }
+}
+
+
+
+# Save configuration to file
+function Save-MigrationConfig {
+    try {
+        Write-Log "Save-MigrationConfig: Starting" -Level "DEBUG"
+        
+        # Create config object
+        $configData = @{
+            vCenterConfig = $script:vCenterConfig
+            executionSettings = $script:executionSettings
+            Scripts = $script:Scripts  # Make sure Scripts are included
+        }
+        
+        Write-Log "Config data prepared. Scripts count: $($script:Scripts.Count)" -Level "DEBUG"
+        
+        # Ensure config directory exists
+        $configDir = Split-Path -Parent $script:config.ConfigPath
+        if (-not (Test-Path -Path $configDir)) {
+            New-Item -Path $configDir -ItemType Directory -Force | Out-Null
+            Write-Log "Created config directory: $configDir" -Level "DEBUG"
+        }
+        
+        # Save to file
+        $configData | ConvertTo-Json -Depth 10 | Set-Content -Path $script:config.ConfigPath
+        
+        Write-Log "Configuration saved successfully to $($script:config.ConfigPath)" -Level "INFO"
+        return $true
+    }
+    catch {
+        Write-Log "Failed to save configuration: $($_.Exception.Message)" -Level "ERROR"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)" -Level "ERROR"
+        return $false
+    }
+}
+
+# Check if PowerCLI is installed
+function Test-PowerCLIInstalled {
+    $powerCLIModule = Get-Module -Name VMware.PowerCLI -ListAvailable
+    if ($powerCLIModule) {
+        return $true
+    }
+    
+    $powerCLIModule = Get-Module -Name VMware.VimAutomation.Core -ListAvailable
+    if ($powerCLIModule) {
+        return $true
+    }
+    
+    return $false
+}
+
+# Load PowerCLI module
+function Load-PowerCLI {
+    try {
+        # Try to import the module
+        if (Get-Module -Name VMware.PowerCLI -ListAvailable) {
+            Import-Module -Name VMware.PowerCLI -ErrorAction Stop
+            return $true
+        }
+        elseif (Get-Module -Name VMware.VimAutomation.Core -ListAvailable) {
+            Import-Module -Name VMware.VimAutomation.Core -ErrorAction Stop
+            return $true
+        }
+        else {
+            Write-Log "VMware PowerCLI module not found" -Level "WARNING"
+            return $false
+        }
+    }
+    catch {
+        Write-Log "Failed to load PowerCLI module: $($_)" -Level "ERROR"
+        return $false
+    }
+}
+
+# Create a sample script in the scripts folder
+function Create-SampleScript {
+    $sampleScriptPath = Join-Path -Path $script:config.ScriptsFolder -ChildPath "Sample_vCenter_Script.ps1"
+    
+    if (-not (Test-Path -Path $sampleScriptPath)) {
+        $sampleContent = @"
+<#
+.SYNOPSIS
+    Sample vCenter migration script.
+.DESCRIPTION
+    This is a sample script that demonstrates how to connect to vCenter servers
+    and perform operations. You can use this as a template for your own scripts.
+.PARAMETER SourcevCenter
+    The source vCenter server address.
+.PARAMETER TargetvCenter
+    The target vCenter server address.
+.PARAMETER SourceCredential
+    Credentials for the source vCenter server.
+.PARAMETER TargetCredential
+    Credentials for the target vCenter server.
+#>
+param(
+    [Parameter(Mandatory = `$true)]
+    [string]`$SourcevCenter,
+    
+    [Parameter(Mandatory = `$true)]
+    [string]`$TargetvCenter,
+    
+    [Parameter(Mandatory = `$false)]
+    [System.Management.Automation.PSCredential]`$SourceCredential,
+    
+    [Parameter(Mandatory = `$false)]
+    [System.Management.Automation.PSCredential]`$TargetCredential
+)
+
+# Output script parameters
+Write-Output "Running sample script with parameters:"
+Write-Output "  Source vCenter: `$SourcevCenter"
+Write-Output "  Target vCenter: `$TargetvCenter"
+Write-Output "  Source Credentials Provided: `$(`$SourceCredential -ne `$null)"
+Write-Output "  Target Credentials Provided: `$(`$TargetCredential -ne `$null)"
+
+# Connect to source vCenter
+try {
+    Write-Output "Connecting to source vCenter..."
+    if (`$SourceCredential) {
+        `$sourceConnection = Connect-VIServer -Server `$SourcevCenter -Credential `$SourceCredential -ErrorAction Stop
+    } else {
+        `$sourceConnection = Connect-VIServer -Server `$SourcevCenter -ErrorAction Stop
+    }
+    Write-Output "Successfully connected to source vCenter"
+} catch {
+    Write-Output "Failed to connect to source vCenter: `$_"
+    exit 1
+}
+
+# Connect to target vCenter
+try {
+    Write-Output "Connecting to target vCenter..."
+    if (`$TargetCredential) {
+        `$targetConnection = Connect-VIServer -Server `$TargetvCenter -Credential `$TargetCredential -ErrorAction Stop
+    } else {
+        `$targetConnection = Connect-VIServer -Server `$TargetvCenter -ErrorAction Stop
+    }
+    Write-Output "Successfully connected to target vCenter"
+} catch {
+    Write-Output "Failed to connect to target vCenter: `$_"
+    Disconnect-VIServer -Server `$SourcevCenter -Confirm:`$false -ErrorAction SilentlyContinue
+    exit 1
+}
+
+# Perform sample operations
+try {
+    # Get VMs from source
+    Write-Output "Getting VMs from source vCenter..."
+    `$sourceVMs = Get-VM -Server `$sourceConnection -ErrorAction Stop | Select-Object -First 5
+    Write-Output "Found `$(`$sourceVMs.Count) VMs on source vCenter"
+    
+    # List the VMs
+    foreach (`$vm in `$sourceVMs) {
+        Write-Output "  VM: `$(`$vm.Name), PowerState: `$(`$vm.PowerState)"
+    }
+    
+    # Get hosts from target
+    Write-Output "Getting hosts from target vCenter..."
+    `$targetHosts = Get-VMHost -Server `$targetConnection -ErrorAction Stop
+    Write-Output "Found `$(`$targetHosts.Count) hosts on target vCenter"
+    
+    # List the hosts
+    foreach (`$host in `$targetHosts) {
+        Write-Output "  Host: `$(`$host.Name), ConnectionState: `$(`$host.ConnectionState)"
+    }
+    
+    # Simulate some work
+    Write-Output "Simulating migration work..."
+    for (`$i = 1; `$i -le 5; `$i++) {
+        Write-Output "  Processing step `$i of 5..."
+        Start-Sleep -Seconds 1
+    }
+    
+    Write-Output "Sample script completed successfully"
+} catch {
+    Write-Output "Error during script execution: `$_"
+} finally {
+    # Disconnect from vCenter servers
+    Disconnect-VIServer -Server `$SourcevCenter, `$TargetvCenter -Confirm:`$false -ErrorAction SilentlyContinue
+    Write-Output "Disconnected from vCenter servers"
+}
+"@
+        
+        Set-Content -Path $sampleScriptPath -Value $sampleContent
+        Write-Log "Created sample script at $sampleScriptPath"
+    }
+}
+
+#endregion
+
+# Initialize the environment
+Initialize-MigrationEnvironment
+
+# Load configuration
+$configLoaded = Load-MigrationConfig
+
+# Create sample script for first-time users
+Create-SampleScript
+
+# Log application start
+Write-Log "$($script:config.AppName) v$($script:config.Version) initialized"
+
+# Display first-run message if this is the first time
+if (-not $configLoaded) {
+    Write-Log "First run detected - welcome to $($script:config.AppName)!" -Level "INFO"
+}

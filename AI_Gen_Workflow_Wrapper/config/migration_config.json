@@ -1,0 +1,178 @@
+{
+  "Scripts": [
+    {
+      "Description": "",
+      "Path": "C:\\Users\\DMM0090\\OneDrive - Defense Logistics Agency\\Documents\\All Scripts\\GUI Projects\\AI_Gen_Workflow_Wrapper\\Scripts\\01_Sample_Connect.ps1",
+      "Order": 1,
+      "Parameters": [
+        {
+          "Description": "",
+          "Name": "SourcevCenter",
+          "Type": "String",
+          "Value": "SourcevCenter"
+        },
+        {
+          "Description": "",
+          "Name": "TargetvCenter",
+          "Type": "String",
+          "Value": "TargetvCenter"
+        },
+        {
+          "Description": "",
+          "Name": "SourceCredential",
+          "Type": "PSCredential",
+          "Value": "SourceCredential"
+        },
+        {
+          "Description": "",
+          "Name": "TargetCredential",
+          "Type": "PSCredential",
+          "Value": "TargetCredential"
+        }
+      ],
+      "Name": "01_Sample_Connect.ps1",
+      "Enabled": true
+    },
+    {
+      "Description": "",
+      "Path": "C:\\Users\\DMM0090\\OneDrive - Defense Logistics Agency\\Documents\\All Scripts\\GUI Projects\\AI_Gen_Workflow_Wrapper\\Scripts\\copy-vmfolderstructure.ps1",
+      "Order": 2.0,
+      "Parameters": [
+        {
+          "Description": "",
+          "Name": "SourceVCenter",
+          "Type": "String",
+          "Value": "SourcevCenter"
+        },
+        {
+          "Description": "",
+          "Name": "TargetVCenter",
+          "Type": "String",
+          "Value": ""
+        },
+        {
+          "Description": "",
+          "Name": "SourceDatacenterName",
+          "Type": "String",
+          "Value": ""
+        },
+        {
+          "Description": "",
+          "Name": "TargetDatacenterName",
+          "Type": "String",
+          "Value": ""
+        },
+        {
+          "Description": "",
+          "Name": "SourceUser",
+          "Type": "String",
+          "Value": ""
+        },
+        {
+          "Description": "",
+          "Name": "SourcePassword",
+          "Type": "SecureString",
+          "Value": ""
+        },
+        {
+          "Description": "",
+          "Name": "TargetUser",
+          "Type": "String",
+          "Value": ""
+        },
+        {
+          "Description": "",
+          "Name": "TargetPassword",
+          "Type": "SecureString",
+          "Value": ""
+        }
+      ],
+      "Name": "copy-vmfolderstructure.ps1",
+      "Enabled": false
+    },
+    {
+      "Description": "",
+      "Path": "C:\\Users\\DMM0090\\OneDrive - Defense Logistics Agency\\Documents\\All Scripts\\GUI Projects\\AI_Gen_Workflow_Wrapper\\Scripts\\CrossVcenterVMmigration_list.ps1",
+      "Order": 3.0,
+      "Parameters": [
+        {
+          "Description": "",
+          "Name": "SourceVCenter",
+          "Type": "String",
+          "Value": ""
+        },
+        {
+          "Description": "",
+          "Name": "DestVCenter",
+          "Type": "String",
+          "Value": ""
+        },
+        {
+          "Description": "",
+          "Name": "VMList",
+          "Type": "String[]",
+          "Value": ""
+        },
+        {
+          "Description": "",
+          "Name": "VMListFile",
+          "Type": "String",
+          "Value": ""
+        },
+        {
+          "Description": "",
+          "Name": "SourceVCCredential",
+          "Type": "PSCredential",
+          "Value": "SourceCredential"
+        },
+        {
+          "Description": "",
+          "Name": "DestVCCredential",
+          "Type": "PSCredential",
+          "Value": ""
+        },
+        {
+          "Description": "",
+          "Name": "LogFile",
+          "Type": "String",
+          "Value": "\"CrossVCVMotion\""
+        },
+        {
+          "Description": "",
+          "Name": "DestinationCluster",
+          "Type": "String",
+          "Value": ""
+        },
+        {
+          "Description": "",
+          "Name": "SkipModuleCheck",
+          "Type": "SwitchParameter",
+          "Value": ""
+        },
+        {
+          "Description": "",
+          "Name": "Clone",
+          "Type": "SwitchParameter",
+          "Value": ""
+        }
+      ],
+      "Name": "CrossVcenterVMmigration_list.ps1",
+      "Enabled": false
+    }
+  ],
+  "executionSettings": {
+    "Timeout": 300.0,
+    "SkipConfirmation": false,
+    "StopOnError": true,
+    "MaxConcurrentJobs": 1.0
+  },
+  "vCenterConfig": {
+    "SourcevCenter": "daisv0tp213.dir.ad.dla.mil",
+    "UseCurrentCredentials": false,
+    "TargetPassword": "1DAascQ_2023_sso!",
+    "SourceUsername": "administrator@DLA-Test-Dev.local",
+    "TargetUsername": "administrator@DLA-Test-Dev.local",
+    "SourcePassword": "1DAascQ_2023_sso!",
+    "TargetvCenter": "daisv0tp231.dir.ad.dla.mil"
+  }
+}

@@ -1,0 +1,738 @@
+{
+  "VCenter": "daisv0tp231.dir.ad.dla.mil",
+  "HostName": "etespe0ps26.etc.dla.mil",
+  "VMs": [
+    {
+      "VMName": "DMDCVWPPSD01",
+      "PowerState": 0,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "ETISVW0P033",
+      "PowerState": 0,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "ETDCVW0P003",
+      "PowerState": 0,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "ETASVRTPE57",
+      "PowerState": 0,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "ETDCVW0P002",
+      "PowerState": 0,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAASVWTP038",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DAASVWTP038.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAASVWTP041",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DAASVWTP041.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAASVWTP042",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DAASVWTP042.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAASVWTP039",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DAASVWTP039.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "RHEL8-to-OCI-Import-Image",
+      "PowerState": 0,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAASVWT0001",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DAASVWT0001.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAASVWTP046",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DAASVWTP046.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAASVWTP034",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DAASVWTP034.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "RHEL8-OCI-Image",
+      "PowerState": 0,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISVRTP003",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "daisvrtp003.idm.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISVRTP001",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "daisvrtp001.idm.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISVRTP002",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "daisvrtp002.idm.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAASV0TP001",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "vm-for-vcenter8-permissions-test",
+      "PowerState": 0,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DADSVWPP002",
+      "PowerState": 0,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "ETWSVWTPSZD",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZD.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "NetworkAdapter": "Network adapter 1",
+          "Portgroup": "dv-85DMZ-ETCDIR",
+          "IPAddress": "131.70.85.20",
+          "PingResult": "Success"
+        },
+        {
+          "NetworkAdapter": "Network adapter 2",
+          "Portgroup": "dv-981BackDMZ-ETCDIR",
+          "IPAddress": "10.50.185.20",
+          "PingResult": "Success"
+        }
+      ]
+    },
+    {
+      "VMName": "ETWSVWTPSZL",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZL.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "NetworkAdapter": "Network adapter 1",
+          "Portgroup": "dv-85DMZ-ETCDIR",
+          "IPAddress": "131.70.85.80",
+          "PingResult": "Success"
+        },
+        {
+          "NetworkAdapter": "Network adapter 2",
+          "Portgroup": "dv-981BackDMZ-ETCDIR",
+          "IPAddress": "10.50.185.80",
+          "PingResult": "Success"
+        }
+      ]
+    },
+    {
+      "VMName": "ETWSVWTPSZA",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZA.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "NetworkAdapter": "Network adapter 1",
+          "Portgroup": "dv-85DMZ-ETCDIR",
+          "IPAddress": "131.70.85.17",
+          "PingResult": "Success"
+        },
+        {
+          "NetworkAdapter": "Network adapter 2",
+          "Portgroup": "dv-981BackDMZ-ETCDIR",
+          "IPAddress": "10.50.185.17",
+          "PingResult": "Success"
+        }
+      ]
+    },
+    {
+      "VMName": "ETWSVWTPSZK",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZK.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "NetworkAdapter": "Network adapter 1",
+          "Portgroup": "dv-85DMZ-ETCDIR",
+          "IPAddress": "131.70.85.27",
+          "PingResult": "Success"
+        },
+        {
+          "NetworkAdapter": "Network adapter 2",
+          "Portgroup": "dv-981BackDMZ-ETCDIR",
+          "IPAddress": "10.50.185.27",
+          "PingResult": "Success"
+        }
+      ]
+    },
+    {
+      "VMName": "ETWSVWTPSZC",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZC.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "NetworkAdapter": "Network adapter 1",
+          "Portgroup": "dv-85DMZ-ETCDIR",
+          "IPAddress": "131.70.85.19",
+          "PingResult": "Success"
+        },
+        {
+          "NetworkAdapter": "Network adapter 2",
+          "Portgroup": "dv-981BackDMZ-ETCDIR",
+          "IPAddress": "10.50.185.19",
+          "PingResult": "Success"
+        }
+      ]
+    },
+    {
+      "VMName": "ETWSVWTPSZF",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZF.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "NetworkAdapter": "Network adapter 1",
+          "Portgroup": "dv-85DMZ-ETCDIR",
+          "IPAddress": "131.70.85.23",
+          "PingResult": "Success"
+        },
+        {
+          "NetworkAdapter": "Network adapter 2",
+          "Portgroup": "dv-981BackDMZ-ETCDIR",
+          "IPAddress": "169.254.243.55",
+          "PingResult": "Success"
+        }
+      ]
+    },
+    {
+      "VMName": "ETWSVWTPSZE",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZE.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "NetworkAdapter": "Network adapter 1",
+          "Portgroup": "dv-85DMZ-ETCDIR",
+          "IPAddress": "131.70.85.21",
+          "PingResult": "Success"
+        },
+        {
+          "NetworkAdapter": "Network adapter 2",
+          "Portgroup": "dv-981BackDMZ-ETCDIR",
+          "IPAddress": "10.50.185.21",
+          "PingResult": "Success"
+        }
+      ]
+    },
+    {
+      "VMName": "ETWSVWTPSZJ",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZJ.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "NetworkAdapter": "Network adapter 1",
+          "Portgroup": "dv-85DMZ-ETCDIR",
+          "IPAddress": "131.70.85.24",
+          "PingResult": "Success"
+        },
+        {
+          "NetworkAdapter": "Network adapter 2",
+          "Portgroup": "dv-981BackDMZ-ETCDIR",
+          "IPAddress": "169.254.12.135",
+          "PingResult": "Success"
+        }
+      ]
+    },
+    {
+      "VMName": "ETWSVWTPSZH",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZH.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "NetworkAdapter": "Network adapter 1",
+          "Portgroup": "dv-85DMZ-ETCDIR",
+          "IPAddress": "131.70.85.22",
+          "PingResult": "Success"
+        },
+        {
+          "NetworkAdapter": "Network adapter 2",
+          "Portgroup": "dv-981BackDMZ-ETCDIR",
+          "IPAddress": "169.254.165.143",
+          "PingResult": "Success"
+        }
+      ]
+    },
+    {
+      "VMName": "ETWSVWTPSZ8",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZ8.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "NetworkAdapter": "Network adapter 1",
+          "Portgroup": "dv-85DMZ-ETCDIR",
+          "IPAddress": "131.70.85.15",
+          "PingResult": "Success"
+        },
+        {
+          "NetworkAdapter": "Network adapter 2",
+          "Portgroup": "dv-981BackDMZ-ETCDIR",
+          "IPAddress": "10.50.185.15",
+          "PingResult": "Success"
+        }
+      ]
+    },
+    {
+      "VMName": "ETWSVWTPSZ9",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZ9.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "NetworkAdapter": "Network adapter 1",
+          "Portgroup": "dv-85DMZ-ETCDIR",
+          "IPAddress": "131.70.85.16",
+          "PingResult": "Success"
+        },
+        {
+          "NetworkAdapter": "Network adapter 2",
+          "Portgroup": "dv-981BackDMZ-ETCDIR",
+          "IPAddress": "169.254.157.231",
+          "PingResult": "Success"
+        }
+      ]
+    },
+    {
+      "VMName": "ETASVWTPSZ1",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETASVWTPSZ1.etcdir.etc.dla.mil",
+      "NetworkAdapters": [
+        {
+          "NetworkAdapter": "Network adapter 1",
+          "Portgroup": "dv-85DMZ-ETCDIR",
+          "IPAddress": "131.70.85.81",
+          "PingResult": "Success"
+        },
+        {
+          "NetworkAdapter": "Network adapter 2",
+          "Portgroup": "dv-981BackDMZ-ETCDIR",
+          "IPAddress": "10.50.185.81",
+          "PingResult": "Success"
+        }
+      ]
+    },
+    {
+      "VMName": "ETDBVWTPSZ3",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETDBVWTPSZ3.etcdir.etc.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "ETWSVWTPSZB",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZB.etcdir.etc.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "ETASVWTPSZ2",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETASVWTPSZ2.etcdir.etc.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "ETWSVWTPSZG",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZG.etcdir.etc.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "ETDBVWTPSZ4",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETDBVWTPSZ4.etcdir.etc.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "ETWSVWTPSZ6",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZ6.etcdir.etc.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "ETWSVWTPSZ7",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZ7.etcdir.etc.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "ETWSVWTPSZ5",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZ5.etcdir.etc.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "ETWSVWTPSZI",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "ETWSVWTPSZI.etcdir.etc.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DMDCVWPPSD02",
+      "PowerState": 0,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISVWTP001",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DAISVWTP001.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAASVRTP043",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "daasvrtp043.idm.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISV0TP018",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "daisv0tp018.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISV0TP022",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "gatevpn-virtual-1.etn",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISV0TP023",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "gatevpn-virtual-2.etn",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DADSVWTP004",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DADSVWTP004.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAASV0TP003",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAASV0TP002",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAASVWTP040",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DAASVWTP040.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAVMV0T0001",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "davmv0t0001.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISV0TP008",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "platform2",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISV0TP007",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "platform1",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISV0TP010",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "aria-networks-collector",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISV0TP009",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "platform3",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISV0TP014",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "aria-networks-collector",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAASVWTP013",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DAASVWTP013.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAVMVWTP001",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DAVMVWTP001.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAVMV0T0004",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DAVMV0T0004.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAVPMTest051",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DAVPMTest051",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISV0TP004",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "daisv0tp004.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISV0TP021",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "daisv0tp021.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAISV0TP003",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "daisv0tp003.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DAVMV0T0005",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "davmv0t0005.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "daisv0tp213.dir.ad.dla.mil",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "daisv0tp213.dir.ad.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "daisv0tp231.dir.ad.dla.mil",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "daisv0tp231.dir.ad.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DS-Test-VM",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DS-TEST-VM.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DADSVWTP003",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DADSVWTP003.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DADSVWTPT01",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DADSVWTPT01.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DADSVWTPT02",
+      "PowerState": 1,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": "DADSVWTPT02.dev-test.dla.mil",
+      "NetworkAdapters": []
+    },
+    {
+      "VMName": "DEVRecover",
+      "PowerState": 0,
+      "GuestOS": null,
+      "ToolsStatus": null,
+      "DNSName": null,
+      "NetworkAdapters": []
+    }
+  ]
+}

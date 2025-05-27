@@ -1,0 +1,14 @@
+{
+  "VCenter": "daisv0tp231.dir.ad.dla.mil",
+  "HostName": "etespe0ps26.etc.dla.mil",
+  "VMs": [
+    {
+      "NetworkAdapters": {
+        "Name": "Network adapter 1",
+        "NetworkName": "dv-20Enclave-EBS",
+        "MacAddress": "00:50:56:9e:ad:6c",
+        "IPAddress": null
+      }
+    }
+  ]
+}
