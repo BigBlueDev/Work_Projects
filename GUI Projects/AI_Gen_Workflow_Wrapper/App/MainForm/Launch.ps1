@@ -8,7 +8,7 @@ Set-Location -Path $scriptPath
 write-host "Current Script path is: $($scriptpath)"
 # Import form designer
 try {
-    . "$scriptPath\AI_Gen_Workflow_Wrapper.designer.ps1"
+    . "$scriptPath\App\MainForm\AI_Gen_Workflow_Wrapper.designer.ps1"
     Write-Host "Loaded form designer"
 } catch {
     Write-Error "Failed to load form designer: $_"
@@ -18,7 +18,7 @@ try {
 
 # Import global variables and initialization
 try {
-    . "$scriptPath\Globals.ps1"
+    . "$scriptPath\App\MainForm\Globals.ps1"
     Write-Host "Loaded global variables and initialization"
 } catch {
     Write-Error "Failed to load global variables: $_"
@@ -28,7 +28,7 @@ try {
 
 # Import core functionality
 try {
-    . "$scriptPath\AI_Gen_Workflow_Wrapper.ps1"
+    . "$scriptPath\App\MainForm\AI_Gen_Workflow_Wrapper.ps1"
     Write-Host "Loaded core functionality"
 } catch {
     Write-Error "Failed to load core functionality: $_"

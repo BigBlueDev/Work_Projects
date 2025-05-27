@@ -73,6 +73,7 @@ $mainForm = New-Object -TypeName System.Windows.Forms.Form
 [System.Windows.Forms.Panel]$pnlBottom = $null
 [System.Windows.Forms.Button]$btnSaveAll = $null
 [System.Windows.Forms.Button]$btnExit = $null
+[System.Windows.Forms.OpenFileDialog]$openFileDialog1 = $null
 [System.Windows.Forms.Button]$btnHelp = $null
 function InitializeComponent
 {
@@ -149,6 +150,7 @@ $pnlBottom = (New-Object -TypeName System.Windows.Forms.Panel)
 $btnSaveAll = (New-Object -TypeName System.Windows.Forms.Button)
 $btnExit = (New-Object -TypeName System.Windows.Forms.Button)
 $btnHelp = (New-Object -TypeName System.Windows.Forms.Button)
+$openFileDialog1 = (New-Object -TypeName System.Windows.Forms.OpenFileDialog)
 $tabControl.SuspendLayout()
 $tabConnection.SuspendLayout()
 $grpSource.SuspendLayout()
@@ -209,7 +211,7 @@ $grpSource.Controls.Add($txtSourcePassword)
 $grpSource.Controls.Add($btnTestSourceConnection)
 $grpSource.Location = (New-Object -TypeName System.Drawing.Point -ArgumentList @([System.Int32]10,[System.Int32]10))
 $grpSource.Name = [System.String]'grpSource'
-$grpSource.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([System.Int32]350,[System.Int32]150))
+$grpSource.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([System.Int32]350,[System.Int32]185))
 $grpSource.TabIndex = [System.Int32]0
 $grpSource.TabStop = $false
 $grpSource.Text = [System.String]'Source vCenter'
@@ -262,7 +264,7 @@ $txtSourcePassword.TabIndex = [System.Int32]5
 #
 #btnTestSourceConnection
 #
-$btnTestSourceConnection.Location = (New-Object -TypeName System.Drawing.Point -ArgumentList @([System.Int32]120,[System.Int32]120))
+$btnTestSourceConnection.Location = (New-Object -TypeName System.Drawing.Point -ArgumentList @([System.Int32]13,[System.Int32]156))
 $btnTestSourceConnection.Name = [System.String]'btnTestSourceConnection'
 $btnTestSourceConnection.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([System.Int32]120,[System.Int32]23))
 $btnTestSourceConnection.TabIndex = [System.Int32]6
@@ -281,7 +283,7 @@ $grpTarget.Controls.Add($txtTargetPassword)
 $grpTarget.Controls.Add($btnTestTargetConnection)
 $grpTarget.Location = (New-Object -TypeName System.Drawing.Point -ArgumentList @([System.Int32]380,[System.Int32]10))
 $grpTarget.Name = [System.String]'grpTarget'
-$grpTarget.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([System.Int32]350,[System.Int32]150))
+$grpTarget.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([System.Int32]350,[System.Int32]185))
 $grpTarget.TabIndex = [System.Int32]1
 $grpTarget.TabStop = $false
 $grpTarget.Text = [System.String]'Target vCenter'
@@ -334,7 +336,7 @@ $txtTargetPassword.TabIndex = [System.Int32]5
 #
 #btnTestTargetConnection
 #
-$btnTestTargetConnection.Location = (New-Object -TypeName System.Drawing.Point -ArgumentList @([System.Int32]120,[System.Int32]120))
+$btnTestTargetConnection.Location = (New-Object -TypeName System.Drawing.Point -ArgumentList @([System.Int32]13,[System.Int32]156))
 $btnTestTargetConnection.Name = [System.String]'btnTestTargetConnection'
 $btnTestTargetConnection.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([System.Int32]120,[System.Int32]23))
 $btnTestTargetConnection.TabIndex = [System.Int32]6
@@ -344,7 +346,7 @@ $btnTestTargetConnection.add_Click($btnTestTargetConnection_Click)
 #
 #chkUseCurrentCredentials
 #
-$chkUseCurrentCredentials.Location = (New-Object -TypeName System.Drawing.Point -ArgumentList @([System.Int32]10,[System.Int32]170))
+$chkUseCurrentCredentials.Location = (New-Object -TypeName System.Drawing.Point -ArgumentList @([System.Int32]10,[System.Int32]201))
 $chkUseCurrentCredentials.Name = [System.String]'chkUseCurrentCredentials'
 $chkUseCurrentCredentials.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([System.Int32]250,[System.Int32]20))
 $chkUseCurrentCredentials.TabIndex = [System.Int32]2
@@ -353,7 +355,7 @@ $chkUseCurrentCredentials.UseVisualStyleBackColor = $true
 #
 #btnSaveConnection
 #
-$btnSaveConnection.Location = (New-Object -TypeName System.Drawing.Point -ArgumentList @([System.Int32]10,[System.Int32]200))
+$btnSaveConnection.Location = (New-Object -TypeName System.Drawing.Point -ArgumentList @([System.Int32]10,[System.Int32]227))
 $btnSaveConnection.Name = [System.String]'btnSaveConnection'
 $btnSaveConnection.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([System.Int32]180,[System.Int32]23))
 $btnSaveConnection.TabIndex = [System.Int32]3
@@ -363,7 +365,7 @@ $btnSaveConnection.add_Click($btnSaveConnection_Click)
 #
 #btnLoadConnection
 #
-$btnLoadConnection.Location = (New-Object -TypeName System.Drawing.Point -ArgumentList @([System.Int32]200,[System.Int32]200))
+$btnLoadConnection.Location = (New-Object -TypeName System.Drawing.Point -ArgumentList @([System.Int32]196,[System.Int32]227))
 $btnLoadConnection.Name = [System.String]'btnLoadConnection'
 $btnLoadConnection.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([System.Int32]180,[System.Int32]23))
 $btnLoadConnection.TabIndex = [System.Int32]4
@@ -925,6 +927,10 @@ $btnHelp.TabIndex = [System.Int32]2
 $btnHelp.Text = [System.String]'Help'
 $btnHelp.UseVisualStyleBackColor = $true
 #
+#openFileDialog1
+#
+$openFileDialog1.FileName = [System.String]'openFileDialog'
+#
 #mainForm
 #
 $mainForm.ClientSize = (New-Object -TypeName System.Drawing.Size -ArgumentList @([System.Int32]800,[System.Int32]600))
@@ -1034,6 +1040,7 @@ Add-Member -InputObject $mainForm -Name statusStripLabel -Value $statusStripLabe
 Add-Member -InputObject $mainForm -Name pnlBottom -Value $pnlBottom -MemberType NoteProperty
 Add-Member -InputObject $mainForm -Name btnSaveAll -Value $btnSaveAll -MemberType NoteProperty
 Add-Member -InputObject $mainForm -Name btnExit -Value $btnExit -MemberType NoteProperty
+Add-Member -InputObject $mainForm -Name openFileDialog1 -Value $openFileDialog1 -MemberType NoteProperty
 Add-Member -InputObject $mainForm -Name btnHelp -Value $btnHelp -MemberType NoteProperty
 }
 . InitializeComponent

@@ -75,6 +75,7 @@
       <SubType>Form</SubType>
       <Resource>True</Resource>
     </Compile>
+    <Compile Include="EditParameterForm.resources.ps1" />
     <Compile Include="Globals.ps1" />
     <Compile Include="Launch.ps1" />
   </ItemGroup>
@@ -85,9 +86,6 @@
     <EmbeddedResource Include="EditParameterForm.resx">
       <DependentUpon>EditParameterForm.ps1</DependentUpon>
     </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Button Dialogues\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\PowerShell Tools for Visual Studio\PowerShellTools.targets" Condition="Exists('$(MSBuildExtensionsPath)\PowerShell Tools for Visual Studio\PowerShellTools.targets')" />
 </Project>

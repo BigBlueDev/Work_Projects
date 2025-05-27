@@ -1,2904 +1,3503 @@
-$btnExportLogs_Click = {
+<#
+.SYNOPSIS
+    vCenter Migration Workflow Manager - Core Functionality Wrapper
+
+.DESCRIPTION
+    This script contains all the core functionality, event handlers, and business logic
+    for the vCenter Migration Workflow Manager application. It works in conjunction with
+    the form designer and globals to provide a complete workflow management solution.
+
+.NOTES
+    Author: vCenter Migration Team
+    Version: 1.0
+    Requires: PowerShell 5.1+, VMware PowerCLI, Windows Forms
+    Compatible: PowerShell Pro Tools
+#>
+
+# Ensure strict mode for better error handling
+Set-StrictMode -Version Latest
+
+#region Win32 API and Form Management
+
+# Add Win32 API for enhanced window management
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+    
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
+    
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+    
+    public const int SW_RESTORE = 9;
+    public const int SW_SHOW = 5;
+    public const int SW_NORMAL = 1;
+}
+"@
+
+function Show-MainForm {
+    <#
+    .SYNOPSIS
+        Enhanced form display function that ensures the form appears in the foreground
+    #>
     try {
-        # Implement log export logic
-        $saveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
-        $saveFileDialog.Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*"
-        $saveFileDialog.Title = "Export Logs"
+        Write-Log "Showing main form..." -Level "INFO"
         
-        if ($saveFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            $logTextBox.Text | Out-File -FilePath $saveFileDialog.FileName -Encoding UTF8
-            [System.Windows.Forms.MessageBox]::Show("Logs exported successfully!", "Export Successful", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        # Ensure form is properly configured
+        $mainForm.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+        $mainForm.ShowInTaskbar = $true
+        $mainForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+        
+        # Show the form
+        $mainForm.Show()
+        
+        # Wait a moment for the handle to be created
+        $timeout = [datetime]::Now.AddSeconds(5)
+        while (-not $mainForm.Handle -and [datetime]::Now -lt $timeout) {
+            Start-Sleep -Milliseconds 50
+            [System.Windows.Forms.Application]::DoEvents()
         }
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error exporting logs: $_", "Export Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnClearLogs_Click = {
-    try {
-        $logTextBox.Clear()
-        # Optionally, clear the actual log file
-        # Add-LogMessage "Logs cleared manually"
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error clearing logs: $_", "Clear Logs Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnRefreshLogs_Click = {
-        try {
-        # Implement log refresh logic
-        # This might involve reading the latest log file or reloading logs
-        if (Test-Path $Global:LogFilePath) {
-            $logTextBox.Text = Get-Content $Global:LogFilePath -Raw
-        }
-        else {
-            $logTextBox.Text = "No log file found."
-        }
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error refreshing logs: $_", "Refresh Logs Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnStopExecution_Click = {
-    try {
-        # Implement script execution stop logic
-        if ($Global:ExecutionJob) {
-            Stop-Job $Global:ExecutionJob
-            Remove-Job $Global:ExecutionJob
-            $btnStopExecution.Enabled = $false
-            $statusStripLabel.Text = "Execution stopped by user"
-            # Add additional cleanup or reset logic
-        }
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error stopping execution: $_", "Stop Execution Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnRunSelected_Click = {
-    try {
-        # Implement run selected script logic
-        if ($lvScripts.SelectedItems.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a script to run.", "No Script Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-
-        $selectedScript = $lvScripts.SelectedItems[0]
-        # Add logic to run the selected script
-        # This might involve creating a background job, updating progress, etc.
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error running selected script: $_", "Script Execution Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnRunAll_Click = {
-    try {
-        # Validate scripts exist and are enabled
-        if ($lvScripts.Items.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("No scripts available to run.", "Run All Scripts", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            return
-        }
-
-        # Confirm execution
-        $confirmResult = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to run all scripts?", "Confirm Execution", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
-        if ($confirmResult -eq [System.Windows.Forms.DialogResult]::No) {
-            return
-        }
-
-        # Prepare for script execution
-        $progressOverall.Value = 0
-        $progressOverall.Maximum = ($lvScripts.Items | Where-Object { $_.SubItems[2].Text -eq 'True' }).Count
-        $txtExecutionOutput.Clear()
-
-        # Start background job to run scripts
-        $Global:ExecutionJob = Start-Job -ScriptBlock {
-            param($scripts, $stopOnError)
+        
+        if ($mainForm.Handle) {
+            Write-Log "Form handle created: $($mainForm.Handle)" -Level "DEBUG"
             
-            $results = @()
-            foreach ($script in $scripts) {
-                try {
-                    $result = Invoke-Expression $script.Path
-                    $results += @{
-                        ScriptPath = $script.Path
-                        Success = $true
-                        Output = $result
-                    }
-                }
-                catch {
-                    $results += @{
-                        ScriptPath = $script.Path
-                        Success = $false
-                        Error = $_.Exception.Message
-                    }
-                    
-                    if ($stopOnError) {
-                        break
-                    }
-                }
+            # Use Win32 API to bring window to front
+            if ([Win32]::IsIconic($mainForm.Handle)) {
+                [Win32]::ShowWindow($mainForm.Handle, [Win32]::SW_RESTORE) | Out-Null
             }
-            return $results
-        } -ArgumentList @(
-            ($lvScripts.Items | Where-Object { $_.SubItems[2].Text -eq 'True' } | ForEach-Object { 
-                @{ Path = $_.SubItems[1].Text }
-            }),
-            $chkStopOnError.Checked
-        )
-
-        # Monitor job progress
-        $timer = New-Object System.Windows.Forms.Timer
-        $timer.Interval = 1000
-        $timer.Add_Tick({
-            if ($Global:ExecutionJob.State -ne 'Running') {
-                $timer.Stop()
-                $results = Receive-Job $Global:ExecutionJob
-
-                # Update UI with results
-                $results | ForEach-Object {
-                    if ($_.Success) {
-                        $txtExecutionOutput.AppendText("Script: $($_.ScriptPath)`nSuccess`n")
-                    }
-                    else {
-                        $txtExecutionOutput.AppendText("Script: $($_.ScriptPath)`nError: $($_.Error)`n")
-                    }
-                }
-
-                $progressOverall.Value = $progressOverall.Maximum
-                $statusStripLabel.Text = "Execution completed"
-                $btnStopExecution.Enabled = $false
-            }
-            else {
-                $progressOverall.Value++
-            }
-        })
-        $timer.Start()
-
-        $btnStopExecution.Enabled = $true
-        $statusStripLabel.Text = "Running all scripts..."
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error running scripts: $_", "Execution Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnSaveScriptDetails_Click = {
-    try {
-        # Validate required fields
-        if ([string]::IsNullOrWhiteSpace($txtScriptPath.Text)) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a script file.", "Validation Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-
-        # If a script is selected in the list, update its details
-        if ($lvScripts.SelectedIndices.Count -gt 0) {
-            $selectedIndex = $lvScripts.SelectedIndices[0]
-            $lvScripts.Items[$selectedIndex].SubItems[1].Text = $txtScriptPath.Text
-            $lvScripts.Items[$selectedIndex].SubItems[2].Text = $chkScriptEnabled.Checked.ToString()
-        }
-        else {
-            # Add new script to the list
-            $newItem = $lvScripts.Items.Add((($lvScripts.Items.Count + 1).ToString()))
-            $newItem.SubItems.Add($txtScriptPath.Text)
-            $newItem.SubItems.Add($chkScriptEnabled.Checked.ToString())
-        }
-
-        # Clear input fields
-        $txtScriptPath.Clear()
-        $txtScriptDescription.Clear()
-        $chkScriptEnabled.Checked = $false
-        $lvParameters.Items.Clear()
-
-        [System.Windows.Forms.MessageBox]::Show("Script details saved successfully.", "Save Successful", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error saving script details: $_", "Save Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnDetectParams_Click = {
-    try {
-        if ([string]::IsNullOrWhiteSpace($txtScriptPath.Text)) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a script file first.", "Detection Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-
-        # Clear existing parameters
-        $lvParameters.Items.Clear()
-
-        # Use AST to parse script parameters
-        $ast = [System.Management.Automation.Language.Parser]::ParseFile($txtScriptPath.Text, [ref]$null, [ref]$null)
-        $parameters = $ast.FindAll({ 
-            param($node) 
-            $node -is [System.Management.Automation.Language.ParameterAst] 
-        }, $true)
-
-        foreach ($param in $parameters) {
-            $paramName = $param.Name.VariablePath.UserPath
-            $paramType = $param.StaticType.Name
             
-            $listItem = $lvParameters.Items.Add($paramName)
-            $listItem.SubItems.Add("") # Value
-            $listItem.SubItems.Add($paramType)
+            [Win32]::ShowWindow($mainForm.Handle, [Win32]::SW_SHOW) | Out-Null
+            [Win32]::SetForegroundWindow($mainForm.Handle) | Out-Null
+            
+            # Additional PowerShell methods for good measure
+            $mainForm.BringToFront()
+            $mainForm.Activate()
+            $mainForm.Focus()
+            
+            # Temporary TopMost to force visibility (then reset)
+            $mainForm.TopMost = $true
+            $mainForm.Refresh()
+            [System.Windows.Forms.Application]::DoEvents()
+            Start-Sleep -Milliseconds 100
+            $mainForm.TopMost = $false
+            
+            Write-Log "Main form displayed and brought to foreground successfully" -Level "INFO"
+        } else {
+            Write-Log "Warning: Form handle not created within timeout period" -Level "WARNING"
         }
-
-        [System.Windows.Forms.MessageBox]::Show("Parameters detected successfully.", "Detection Complete", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error detecting parameters: $_", "Detection Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        
+    } catch {
+        Write-Log "Error showing main form: $($_.Exception.Message)" -Level "ERROR"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)" -Level "ERROR"
+        throw
     }
 }
 
-$btnRemoveParam_Click = {
+function Set-FormState {
+    <#
+    .SYNOPSIS
+        Manages form window state
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("Minimized", "Normal", "Maximized")]
+        [string]$State
+    )
+    
     try {
-        if ($lvParameters.SelectedIndices.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a parameter to remove.", "Remove Parameter", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-
-        $lvParameters.Items.RemoveAt($lvParameters.SelectedIndices[0])
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error removing parameter: $_", "Remove Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnEditParam_Click = {
-    try {
-        if ($lvParameters.SelectedIndices.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a parameter to edit.", "Edit Parameter", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-
-        $selectedItem = $lvParameters.SelectedItems[0]
-        $paramName = $selectedItem.Text
-        $paramType = $selectedItem.SubItems[2].Text
-
-        # Create a dialog for editing parameter value
-        $inputForm = New-Object System.Windows.Forms.Form
-        $inputForm.Text = "Edit Parameter"
-        $inputForm.Size = New-Object System.Drawing.Size(300,200)
-        $inputForm.StartPosition = "CenterScreen"
-
-        $labelName = New-Object System.Windows.Forms.Label
-        $labelName.Text = "Parameter: $paramName (Type: $paramType)"
-        $labelName.Location = New-Object System.Drawing.Point(10,20)
-        $labelName.Size = New-Object System.Drawing.Size(280,20)
-        $inputForm.Controls.Add($labelName)
-
-        $textValue = New-Object System.Windows.Forms.TextBox
-        $textValue.Location = New-Object System.Drawing.Point(10,50)
-        $textValue.Size = New-Object System.Drawing.Size(260,20)
-        $textValue.Text = $selectedItem.SubItems[1].Text
-        $inputForm.Controls.Add($textValue)
-
-        $btnOK = New-Object System.Windows.Forms.Button
-        $btnOK.Text = "OK"
-        $btnOK.DialogResult = [System.Windows.Forms.DialogResult]::OK
-        $btnOK.Location = New-Object System.Drawing.Point(100,100)
-        $inputForm.Controls.Add($btnOK)
-        $inputForm.AcceptButton = $btnOK
-
-        $result = $inputForm.ShowDialog()
-        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-            $selectedItem.SubItems[1].Text = $textValue.Text
-        }
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error editing parameter: $_", "Edit Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnAddParam_Click = {
-try {
-        # Create a dialog for adding a new parameter
-        $inputForm = New-Object System.Windows.Forms.Form
-        $inputForm.Text = "Add Parameter"
-        $inputForm.Size = New-Object System.Drawing.Size(300,250)
-        $inputForm.StartPosition = "CenterScreen"
-
-        $labelName = New-Object System.Windows.Forms.Label
-        $labelName.Text = "Parameter Name:"
-        $labelName.Location = New-Object System.Drawing.Point(10,20)
-        $labelName.Size = New-Object System.Drawing.Size(100,20)
-        $inputForm.Controls.Add($labelName)
-
-        $textName = New-Object System.Windows.Forms.TextBox
-        $textName.Location = New-Object System.Drawing.Point(120,20)
-        $textName.Size = New-Object System.Drawing.Size(150,20)
-        $inputForm.Controls.Add($textName)
-
-        $labelType = New-Object System.Windows.Forms.Label
-        $labelType.Text = "Parameter Type:"
-        $labelType.Location = New-Object System.Drawing.Point(10,50)
-        $labelType.Size = New-Object System.Drawing.Size(100,20)
-        $inputForm.Controls.Add($labelType)
-
-        $comboType = New-Object System.Windows.Forms.ComboBox
-        $comboType.Location = New-Object System.Drawing.Point(120,50)
-        $comboType.Size = New-Object System.Drawing.Size(150,20)
-        $comboType.Items.AddRange(@("String", "Int32", "Boolean", "PSCredential", "Array"))
-        $inputForm.Controls.Add($comboType)
-
-        $labelValue = New-Object System.Windows.Forms.Label
-        $labelValue.Text = "Parameter Value:"
-        $labelValue.Location = New-Object System.Drawing.Point(10,80)
-        $labelValue.Size = New-Object System.Drawing.Size(100,20)
-        $inputForm.Controls.Add($labelValue)
-
-        $textValue = New-Object System.Windows.Forms.TextBox
-        $textValue.Location = New-Object System.Drawing.Point(120,80)
-        $textValue.Size = New-Object System.Drawing.Size(150,20)
-        $inputForm.Controls.Add($textValue)
-
-        $btnOK = New-Object System.Windows.Forms.Button
-        $btnOK.Text = "Add"
-        $btnOK.DialogResult = [System.Windows.Forms.DialogResult]::OK
-        $btnOK.Location = New-Object System.Drawing.Point(100,150)
-        $inputForm.Controls.Add($btnOK)
-        $inputForm.AcceptButton = $btnOK
-
-        $result = $inputForm.ShowDialog()
-        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-            if ([string]::IsNullOrWhiteSpace($textName.Text) -or [string]::IsNullOrWhiteSpace($comboType.SelectedItem)) {
-                [System.Windows.Forms.MessageBox]::Show("Please enter a parameter name and select a type.", "Validation Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-                return
+        switch ($State) {
+            "Minimized" {
+                $mainForm.WindowState = [System.Windows.Forms.FormWindowState]::Minimized
             }
-
-            $newItem = $lvParameters.Items.Add($textName.Text)
-            $newItem.SubItems.Add($textValue.Text)
-            $newItem.SubItems.Add($comboType.SelectedItem)
-        }
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error adding parameter: $_", "Add Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnMoveDown_Click = {
-    try {
-        if ($lvScripts.SelectedIndices.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a script to move.", "Move Script", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-
-        $selectedIndex = $lvScripts.SelectedIndices[0]
-        if ($selectedIndex -lt $lvScripts.Items.Count - 1) {
-            $currentItem = $lvScripts.Items[$selectedIndex]
-            $nextItem = $lvScripts.Items[$selectedIndex + 1]
-
-            # Swap order numbers
-            $tempOrder = $currentItem.SubItems[0].Text
-            $currentItem.SubItems[0].Text = $nextItem.SubItems[0].Text
-            $nextItem.SubItems[0].Text = $tempOrder
-
-            # Remove and re-insert to change position
-            $lvScripts.Items.Remove($currentItem)
-            $lvScripts.Items.Insert($selectedIndex + 1, $currentItem)
-            $lvScripts.Items[$selectedIndex + 1].Selected = $true
-        }
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error moving script down: $_", "Move Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnMoveUp_Click = {
-    try {
-        if ($lvScripts.SelectedIndices.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a script to move.", "Move Script", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-
-        $selectedIndex = $lvScripts.SelectedIndices[0]
-        if ($selectedIndex -gt 0) {
-            $currentItem = $lvScripts.Items[$selectedIndex]
-            $prevItem = $lvScripts.Items[$selectedIndex - 1]
-
-            # Swap order numbers
-            $tempOrder = $currentItem.SubItems[0].Text
-            $currentItem.SubItems[0].Text = $prevItem.SubItems[0].Text
-            $prevItem.SubItems[0].Text = $tempOrder
-
-            # Remove and re-insert to change position
-            $lvScripts.Items.Remove($currentItem)
-            $lvScripts.Items.Insert($selectedIndex - 1, $currentItem)
-            $lvScripts.Items[$selectedIndex - 1].Selected = $true
-        }
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error moving script up: $_", "Move Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnRemoveScript_Click = {
-    try {
-        if ($lvScripts.SelectedIndices.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a script to remove.", "Remove Script", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-
-        $confirmResult = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to remove the selected script?", "Confirm Removal", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
-        if ($confirmResult -eq [System.Windows.Forms.DialogResult]::Yes) {
-            $lvScripts.Items.RemoveAt($lvScripts.SelectedIndices[0])
-
-            # Reorder remaining scripts
-            for ($i = 0; $i -lt $lvScripts.Items.Count; $i++) {
-                $lvScripts.Items[$i].SubItems[0].Text = ($i + 1).ToString()
+            "Normal" {
+                $mainForm.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+                if ($mainForm.Handle) {
+                    [Win32]::SetForegroundWindow($mainForm.Handle) | Out-Null
+                }
+            }
+            "Maximized" {
+                $mainForm.WindowState = [System.Windows.Forms.FormWindowState]::Maximized
+                if ($mainForm.Handle) {
+                    [Win32]::SetForegroundWindow($mainForm.Handle) | Out-Null
+                }
             }
         }
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error removing script: $_", "Remove Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnAddScript_Click = {
-    try {
-        $openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-        $openFileDialog.Filter = "PowerShell Scripts (*.ps1)|*.ps1|All Files (*.*)|*.*"
-        $openFileDialog.Title = "Select PowerShell Script"
-
-        if ($openFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            $scriptPath = $openFileDialog.FileName
-
-            # Add script to ListView
-            $newItem = $lvScripts.Items.Add(($lvScripts.Items.Count + 1).ToString())
-            $newItem.SubItems.Add($scriptPath)
-            $newItem.SubItems.Add("True") # Default enabled
-
-            # Populate script details
-            $txtScriptPath.Text = $scriptPath
-            $chkScriptEnabled.Checked = $true
-
-            # Attempt to detect parameters
-            $btnDetectParams_Click.Invoke()
-        }
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error adding script: $_", "Add Script Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        
+        Write-Log "Form state set to: $($State)" -Level "DEBUG"
+        
+    } catch {
+        Write-Log "Error setting form state: $($_.Exception.Message)" -Level "ERROR"
     }
 }
 
-$btnLoadConnection_Click = {
-    try {
-        $openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-        $openFileDialog.Filter = "JSON Files (*.json)|*.json|All Files (*.*)|*.*"
-        $openFileDialog.Title = "Load Connection Settings"
+#endregion
 
-        if ($openFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            $connectionSettings = Get-Content $openFileDialog.FileName | ConvertFrom-Json
-
-            $txtSourceServer.Text = $connectionSettings.SourceServer
-            $txtSourceUsername.Text = $connectionSettings.SourceUsername
-            $txtTargetServer.Text = $connectionSettings.TargetServer
-            $txtTargetUsername.Text = $connectionSettings.TargetUsername
-
-            $chkUseCurrentCredentials.Checked = $connectionSettings.UseCurrentCredentials
-
-            [System.Windows.Forms.MessageBox]::Show("Connection settings loaded successfully.", "Load Successful", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        }
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error loading connection settings: $_", "Load Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnSaveConnection_Click = {
-    try {
-        $saveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
-        $saveFileDialog.Filter = "JSON Files (*.json)|*.json|All Files (*.*)|*.*"
-        $saveFileDialog.Title = "Save Connection Settings"
-
-        if ($saveFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            $connectionSettings = @{
-                SourceServer = $txtSourceServer.Text
-                SourceUsername = $txtSourceUsername.Text
-                TargetServer = $txtTargetServer.Text
-                TargetUsername = $txtTargetUsername.Text
-                UseCurrentCredentials = $chkUseCurrentCredentials.Checked
-            }
-
-            $connectionSettings | ConvertTo-Json | Out-File $saveFileDialog.FileName
-
-            [System.Windows.Forms.MessageBox]::Show("Connection settings saved successfully.", "Save Successful", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        }
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Error saving connection settings: $_", "Save Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnTestTargetConnection_Click = {
-    try {
-        # Validate input
-        if ([string]::IsNullOrWhiteSpace($txtTargetServer.Text)) {
-            [System.Windows.Forms.MessageBox]::Show("Please enter a target server address.", "Validation Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-
-        # Attempt connection
-        $credential = $null
-        if (-not $chkUseCurrentCredentials.Checked) {
-            $credential = Get-Credential -UserName $txtTargetUsername.Text -Message "Enter credentials for Target vCenter"
-        }
-
-        $connection = Connect-VIServer -Server $txtTargetServer.Text -Credential $credential -ErrorAction Stop
-
-        if ($connection) {
-            Disconnect-VIServer -Server $connection -Confirm:$false
-            [System.Windows.Forms.MessageBox]::Show("Successfully connected to target vCenter!", "Connection Test", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        }
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Connection failed: $_", "Connection Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-$btnTestSourceConnection_Click = {
-    try {
-        # Validate input
-        if ([string]::IsNullOrWhiteSpace($txtSourceServer.Text)) {
-            [System.Windows.Forms.MessageBox]::Show("Please enter a source server address.", "Validation Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-
-        # Attempt connection
-        $credential = $null
-        if (-not $chkUseCurrentCredentials.Checked) {
-            $credential = Get-Credential -UserName $txtSourceUsername.Text -Message "Enter credentials for Source vCenter"
-        }
-
-        $connection = Connect-VIServer -Server $txtSourceServer.Text -Credential $credential -ErrorAction Stop
-
-        if ($connection) {
-            Disconnect-VIServer -Server $connection -Confirm:$false
-            [System.Windows.Forms.MessageBox]::Show("Successfully connected to source vCenter!", "Connection Test", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        }
-    }
-    catch {
-        [System.Windows.Forms.MessageBox]::Show("Connection failed: $_", "Connection Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-# AI_Gen_Workflow_Wrapper.ps1
-# Core functionality and action handlers for the vCenter Migration Workflow Manager
-
-# Note: This file is loaded by Launch.ps1 and should not be run directly
-
-#region Core Functions
+#region Application Initialization
 
 function Initialize-Application {
-    # Initialize application components that weren't handled in Globals.ps1
-    Write-Log "Initializing application components"
-    
-    # Load saved settings into the UI
-    Load-FormSettings
-    
-    # Check PowerCLI installation
-    Check-PowerCLI
-    
-    # Load scripts list into the UI
-    Load-ScriptsList
-    
-    # Set initial UI state
-    Update-UIState -State "Ready"
-    
-    Write-Log "Application initialized successfully"
+    <#
+    .SYNOPSIS
+        Main application initialization function
+    #>
+    try {
+        Write-Log "Initializing vCenter Migration Workflow Manager..." -Level "INFO"
+        
+        # Initialize form controls
+        Initialize-FormControls
+        
+        # Initialize ListView columns
+        Initialize-ListViewColumns
+        
+        # Register all event handlers
+        Register-EventHandlers
+        
+        # Load saved settings
+        Load-FormSettings
+        
+        # Set initial UI state
+        Update-UIState -State "Ready"
+        
+        # Initialize script variables
+        if (-not $script:Scripts) {
+            $script:Scripts = @()
+        }
+        
+        if (-not $script:StopExecution) {
+            $script:StopExecution = $false
+        }
+        
+        Write-Log "Application initialization completed successfully" -Level "INFO"
+        
+    } catch {
+        Write-Log "Error during application initialization: $($_.Exception.Message)" -Level "ERROR"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)" -Level "ERROR"
+        throw
+    }
 }
 
+function Initialize-FormControls {
+    <#
+    .SYNOPSIS
+        Initialize form controls with default values and settings
+    #>
+    try {
+        Write-Log "Initializing form controls..." -Level "INFO"
+        
+        # Set default values for execution settings
+        $numTimeout.Value = 300
+        $numMaxJobs.Value = 1
+        $chkStopOnError.Checked = $true
+        $chkSkipConfirmation.Checked = $false
+        
+        # Set initial status
+        $statusStripLabel.Text = "Ready"
+        
+        # Initialize progress bars
+        $progressOverall.Value = 0
+        $progressCurrentScript.Value = 0
+        
+        # Clear text boxes
+        $txtExecutionOutput.Clear()
+        $logTextBox.Clear()
+        
+        # Disable execution controls initially
+        $btnRunAll.Enabled = $false
+        $btnRunSelected.Enabled = $false
+        $btnStopExecution.Enabled = $false
+        
+        # Set up file dialog
+        $openFileDialog1.Filter = "PowerShell Scripts (*.ps1)|*.ps1|All Files (*.*)|*.*"
+        $openFileDialog1.Title = "Select PowerShell Script"
+        
+        Write-Log "Form controls initialized successfully" -Level "INFO"
+        
+        
+    } catch {
+        Write-Log "Error initializing form controls: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Initialize-ListViewColumns {
+    <#
+    .SYNOPSIS
+        Initialize ListView columns for scripts and parameters
+    #>
+    try {
+        Write-Log "Initializing ListView columns..." -Level "DEBUG"
+        
+        # Scripts ListView columns
+        $lvScripts.View = [System.Windows.Forms.View]::Details
+        $lvScripts.FullRowSelect = $true
+        $lvScripts.GridLines = $true
+        $lvScripts.Columns.Clear()
+        
+        [void]$lvScripts.Columns.Add("Order", 50)
+        [void]$lvScripts.Columns.Add("Name", 150)
+        [void]$lvScripts.Columns.Add("Description", 200)
+        [void]$lvScripts.Columns.Add("Enabled", 60)
+        [void]$lvScripts.Columns.Add("Path", 250)
+        
+        # Parameters ListView columns
+        $lvParameters.View = [System.Windows.Forms.View]::Details
+        $lvParameters.FullRowSelect = $true
+        $lvParameters.GridLines = $true
+        $lvParameters.Columns.Clear()
+        
+        [void]$lvParameters.Columns.Add("Name", 100)
+        [void]$lvParameters.Columns.Add("Value", 150)
+        [void]$lvParameters.Columns.Add("Type", 80)
+        [void]$lvParameters.Columns.Add("Description", 200)
+        
+        Write-Log "ListView columns initialized successfully" -Level "DEBUG"
+        
+    } catch {
+        Write-Log "Error initializing ListView columns: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+#endregion
+
+#region Event Handler Registration
+
+function Register-EventHandlers {
+    <#
+    .SYNOPSIS
+        Register all event handlers for form controls with duplicate prevention
+    #>
+    try {
+        Write-Log "Registering event handlers..." -Level "INFO"
+        
+        # Check if already registered to prevent duplicates
+        if ($script:EventHandlersRegistered) {
+            Write-Log "Event handlers already registered, skipping..." -Level "DEBUG"
+            return
+        }
+        
+        # Connection tab event handlers
+        $btnTestSourceConnection.add_Click($btnTestSourceConnection_Click)
+        $btnTestTargetConnection.add_Click($btnTestTargetConnection_Click)
+        $btnSaveConnection.add_Click($btnSaveConnection_Click)
+        $btnLoadConnection.add_Click($btnLoadConnection_Click)
+        
+        # Scripts tab event handlers
+        $btnAddScript.add_Click($btnAddScript_Click)
+        $btnRemoveScript.add_Click($btnRemoveScript_Click)
+        $btnMoveUp.add_Click($btnMoveUp_Click)
+        $btnMoveDown.add_Click($btnMoveDown_Click)
+        $btnBrowse.add_Click($btnBrowse_Click)
+        $btnSaveScriptDetails.add_Click($btnSaveScriptDetails_Click)
+        
+        # Parameter management event handlers
+        $btnAddParam.add_Click($btnAddParam_Click)
+        $btnEditParam.add_Click($btnEditParam_Click)
+        $btnRemoveParam.add_Click($btnRemoveParam_Click)
+        $btnDetectParams.add_Click($btnDetectParams_Click)
+        
+        # Execution tab event handlers
+        $btnRunAll.add_Click($btnRunAll_Click)
+        $btnRunSelected.add_Click($btnRunSelected_Click)
+        $btnStopExecution.add_Click($btnStopExecution_Click)
+        
+        # Log management event handlers
+        $btnRefreshLogs.add_Click($btnRefreshLogs_Click)
+        $btnClearLogs.add_Click($btnClearLogs_Click)
+        $btnExportLogs.add_Click($btnExportLogs_Click)
+        
+        # Bottom panel event handlers
+        $btnSaveAll.add_Click($btnSaveAll_Click)
+        $btnExit.add_Click($btnExit_Click)
+        $btnHelp.add_Click($btnHelp_Click)
+        
+        # ListView selection event handlers
+        $lvScripts.add_SelectedIndexChanged($lvScripts_SelectedIndexChanged)
+        $lvParameters.add_SelectedIndexChanged($lvParameters_SelectedIndexChanged)
+        
+        # Form event handlers
+        $mainForm.add_FormClosing($mainForm_FormClosing)
+        $mainForm.add_Load($mainForm_Load)
+        
+        # Mark as registered
+        $script:EventHandlersRegistered = $true
+        
+        Write-Log "Event handlers registered successfully" -Level "INFO"
+        
+    } catch {
+        Write-Log "Error registering event handlers: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Diagnose-EventHandlers {
+    <#
+    .SYNOPSIS
+        Diagnostic function to verify event handlers are properly registered
+    #>
+    try {
+        Write-Log "Diagnosing event handler registration..." -Level "DEBUG"
+        
+        $eventHandlers = @(
+            @{ Control = "btnTestSourceConnection"; Event = "Click"; Handler = "btnTestSourceConnection_Click" }
+            @{ Control = "btnTestTargetConnection"; Event = "Click"; Handler = "btnTestTargetConnection_Click" }
+            @{ Control = "btnRunAll"; Event = "Click"; Handler = "btnRunAll_Click" }
+            @{ Control = "btnRunSelected"; Event = "Click"; Handler = "btnRunSelected_Click" }
+            @{ Control = "btnStopExecution"; Event = "Click"; Handler = "btnStopExecution_Click" }
+        )
+        
+        foreach ($handler in $eventHandlers) {
+            $control = Get-Variable -Name $handler.Control -ErrorAction SilentlyContinue
+            if ($control) {
+                Write-Log "✓ $($handler.Control) exists and $($handler.Event) event can be registered" -Level "DEBUG"
+            } else {
+                Write-Log "✗ $($handler.Control) not found" -Level "WARNING"
+            }
+        }
+        
+    } catch {
+        Write-Log "Error during event handler diagnosis: $($_.Exception.Message)" -Level "ERROR"
+    }
+}
+
+#endregion
+
+#region UI State Management
+
 function Update-UIState {
-    param (
+    <#
+    .SYNOPSIS
+        Updates UI controls based on application state
+    #>
+    param(
         [Parameter(Mandatory = $true)]
         [ValidateSet("Ready", "Running", "Stopped", "Error")]
         [string]$State
     )
     
-    switch ($State) {
-        "Ready" {
-            $btnRunAll.Enabled = $true
-            $btnRunSelected.Enabled = $true
-            $btnStopExecution.Enabled = $false
-            $statusStripLabel.Text = "Ready"
+    try {
+        Write-Log "Updating UI state to: $($State)" -Level "DEBUG"
+        
+        switch ($State) {
+            "Ready" {
+                # Enable execution controls if scripts are available
+                $enabledScripts = $script:Scripts | Where-Object { $_.Enabled -eq $true }
+                $btnRunAll.Enabled = ($enabledScripts.Count -gt 0)
+                $btnRunSelected.Enabled = ($lvScripts.SelectedItems.Count -gt 0)
+                $btnStopExecution.Enabled = $false
+                
+                # Enable other controls
+                $btnTestSourceConnection.Enabled = $true
+                $btnTestTargetConnection.Enabled = $true
+                $btnSaveConnection.Enabled = $true
+                $btnLoadConnection.Enabled = $true
+                $btnAddScript.Enabled = $true
+                $btnRemoveScript.Enabled = ($lvScripts.SelectedItems.Count -gt 0)
+                
+                # Update status
+                $statusStripLabel.Text = "Ready"
+                $statusStripLabel.ForeColor = [System.Drawing.Color]::Black
+                
+                # Reset progress bars
+                $progressOverall.Value = 0
+                $progressCurrentScript.Value = 0
+                $lblOverallProgress.Text = "Overall Progress:"
+                $lblCurrentProgress.Text = "Current Script:"
+            }
+            
+            "Running" {
+                # Disable execution controls except stop
+                $btnRunAll.Enabled = $false
+                $btnRunSelected.Enabled = $false
+                $btnStopExecution.Enabled = $true
+                
+                # Disable other controls during execution
+                $btnTestSourceConnection.Enabled = $false
+                $btnTestTargetConnection.Enabled = $false
+                $btnAddScript.Enabled = $false
+                $btnRemoveScript.Enabled = $false
+                
+                # Update status
+                $statusStripLabel.Text = "Executing scripts..."
+                $statusStripLabel.ForeColor = [System.Drawing.Color]::Blue
+            }
+            
+            "Stopped" {
+                # Re-enable controls
+                $btnRunAll.Enabled = $true
+                $btnRunSelected.Enabled = ($lvScripts.SelectedItems.Count -gt 0)
+                $btnStopExecution.Enabled = $false
+                
+                $btnTestSourceConnection.Enabled = $true
+                $btnTestTargetConnection.Enabled = $true
+                $btnAddScript.Enabled = $true
+                $btnRemoveScript.Enabled = ($lvScripts.SelectedItems.Count -gt 0)
+                
+                # Update status
+                $statusStripLabel.Text = "Execution stopped"
+                $statusStripLabel.ForeColor = [System.Drawing.Color]::Orange
+            }
+            
+            "Error" {
+                # Re-enable controls
+                $btnRunAll.Enabled = $true
+                $btnRunSelected.Enabled = ($lvScripts.SelectedItems.Count -gt 0)
+                $btnStopExecution.Enabled = $false
+                
+                $btnTestSourceConnection.Enabled = $true
+                $btnTestTargetConnection.Enabled = $true
+                $btnAddScript.Enabled = $true
+                $btnRemoveScript.Enabled = ($lvScripts.SelectedItems.Count -gt 0)
+                
+                # Update status
+                $statusStripLabel.Text = "Error occurred"
+                $statusStripLabel.ForeColor = [System.Drawing.Color]::Red
+            }
         }
-        "Running" {
-            $btnRunAll.Enabled = $false
-            $btnRunSelected.Enabled = $false
-            $btnStopExecution.Enabled = $true
-            $statusStripLabel.Text = "Running..."
-        }
-        "Stopped" {
-            $btnRunAll.Enabled = $true
-            $btnRunSelected.Enabled = $true
-            $btnStopExecution.Enabled = $false
-            $statusStripLabel.Text = "Execution stopped"
-        }
-        "Error" {
-            $btnRunAll.Enabled = $true
-            $btnRunSelected.Enabled = $true
-            $btnStopExecution.Enabled = $false
-            $statusStripLabel.Text = "Error occurred"
-        }
+        
+        # Refresh the form
+        $mainForm.Refresh()
+        
+    } catch {
+        Write-Log "Error updating UI state: $($_.Exception.Message)" -Level "ERROR"
     }
 }
 
+function Test-FormValidation {
+    <#
+    .SYNOPSIS
+        Validates form inputs before execution
+    #>
+    $errors = @()
+    
+    try {
+        # Validate connection settings
+        if ([string]::IsNullOrWhiteSpace($txtSourceServer.Text)) {
+            $errors += "Source server is required"
+        }
+        
+        if ([string]::IsNullOrWhiteSpace($txtTargetServer.Text)) {
+            $errors += "Target server is required"
+        }
+        
+        # Validate credentials if not using current credentials
+        if (-not $chkUseCurrentCredentials.Checked) {
+            if ([string]::IsNullOrWhiteSpace($txtSourceUsername.Text)) {
+                $errors += "Source username is required when not using current credentials"
+            }
+            if ([string]::IsNullOrWhiteSpace($txtTargetUsername.Text)) {
+                $errors += "Target username is required when not using current credentials"
+            }
+        }
+        
+        # Validate that at least one script is enabled
+        $enabledScripts = $script:Scripts | Where-Object { $_.Enabled -eq $true }
+        if ($enabledScripts.Count -eq 0) {
+            $errors += "At least one script must be enabled for execution"
+        }
+        
+        # Validate execution settings
+        if ($numTimeout.Value -le 0) {
+            $errors += "Execution timeout must be greater than 0"
+        }
+        
+        if ($numMaxJobs.Value -le 0) {
+            $errors += "Maximum concurrent jobs must be greater than 0"
+        }
+        
+        # Validate script paths exist
+        foreach ($script in $enabledScripts) {
+            if (-not (Test-Path -Path $script.Path)) {
+                $errors += "Script file not found: $($script.Path)"
+            }
+        }
+        
+    } catch {
+        Write-Log "Error during form validation: $($_.Exception.Message)" -Level "ERROR"
+        $errors += "Validation error: $($_.Exception.Message)"
+    }
+    
+    return $errors
+}
+
+function Enable-ExecutionControls {
+    <#
+    .SYNOPSIS
+        Helper function to enable/disable execution controls based on script availability
+    #>
+    param([bool]$Enable)
+    
+    try {
+        $enabledScripts = @($script:Scripts | Where-Object { $_.Enabled -eq $true })
+        $hasSelection = $lvScripts.SelectedItems.Count -gt 0
+        
+        # Update button states
+        $btnRunAll.Enabled = $Enable -and ($enabledScripts.Count -gt 0)
+        $btnRunSelected.Enabled = $Enable -and $hasSelection
+        $btnRemoveScript.Enabled = $hasSelection
+        $btnMoveUp.Enabled = $hasSelection -and ($lvScripts.SelectedItems[0].Index -gt 0)
+        $btnMoveDown.Enabled = $hasSelection -and ($lvScripts.SelectedItems[0].Index -lt ($lvScripts.Items.Count - 1))
+        
+        Write-Log "Execution controls updated - Enable: $($Enable), Scripts: $($enabledScripts.Count), Selection: $($hasSelection)" -Level "DEBUG"
+        
+    } catch {
+        Write-Log "Error enabling execution controls: $($_.Exception.Message)" -Level "ERROR"
+    }
+}
 
 #endregion
 
-# Add this function to convert a TextBox's text to SecureString
-function Convert-TextBoxToSecureString {
-    param(
-        [System.Windows.Forms.TextBox]$TextBox
-    )
+#region Form Event Handlers
 
-    if (-not $TextBox -or [string]::IsNullOrWhiteSpace($TextBox.Text)) {
-        return $null
+$mainForm_Load = {
+    try {
+        Write-Log "Main form loading..." -Level "INFO"
+        
+        # Perform any additional initialization needed when form loads
+        Refresh-LogDisplay
+        
+        Write-Log "Main form loaded successfully" -Level "INFO"
+        
+    } catch {
+        Write-Log "Error during main form load: $($_.Exception.Message)" -Level "ERROR"
     }
-
-    $secureString = New-Object System.Security.SecureString
-    foreach ($char in $TextBox.Text.ToCharArray()) {
-        $secureString.AppendChar($char)
-    }
-    $secureString.MakeReadOnly()
-    return $secureString
 }
 
-function Test-vCenterConnection {
-    param(
-        [Parameter(Mandatory=$true)]
-        [System.Windows.Forms.Button]$ConnectionButton,
-        
-        [Parameter(Mandatory=$true)]
-        [System.Windows.Forms.TextBox]$ServerTextBox,
-        
-        [Parameter(Mandatory=$true)]
-        [System.Windows.Forms.TextBox]$UsernameTextBox,
-        
-        [Parameter(Mandatory=$true)]
-        [System.Windows.Forms.TextBox]$PasswordTextBox,
-        
-        [System.Windows.Forms.CheckBox]$UseCurrentCredentials = $null
-    )
-
-    function Write-DetailedLog {
-        param(
-            [string]$Message,
-            [string]$LogLevel = 'INFO'
-        )
-        
-        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-        $logEntry = "[$timestamp] [$LogLevel] $Message"
-        
-        # Write to log textbox
-        if ($mainForm.logTextBox) {
-            $mainForm.logTextBox.Invoke([Action]{
-                $mainForm.logTextBox.AppendText("$logEntry`r`n")
-            })
-        }
-        
-        # Write to file log
-        Add-Content -Path "$PSScriptRoot\vcenter_connection.log" -Value $logEntry
-        
-        # Update status strip
-        if ($mainForm.statusStripLabel) {
-            $mainForm.statusStripLabel.Invoke([Action]{
-                $mainForm.statusStripLabel.Text = $Message
-            })
-        }
-
-        # Also write to console for debugging
-        Write-Host $logEntry
-    }
-
+$mainForm_FormClosing = {
+    param($sender, $e)
+    
     try {
-        # Explicitly extract text from TextBox controls
-        $serverName = $ServerTextBox.Text
-        $username = $UsernameTextBox.Text
+        Write-Log "Main form closing..." -Level "INFO"
         
-        # Convert password to SecureString
-        $securePassword = Convert-TextBoxToSecureString -TextBox $PasswordTextBox
-
-        # Detailed diagnostic logging
-        Write-DetailedLog "Connection Test Started" -LogLevel "INFO"
+        # Check if execution is running
+        if ($script:ExecutionPowerShell -and -not $script:ExecutionHandle.IsCompleted) {
+            $result = [System.Windows.Forms.MessageBox]::Show(
+                "Script execution is still running. Do you want to stop execution and exit?",
+                "Execution in Progress",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question
+            )
+            
+            if ($result -eq [System.Windows.Forms.DialogResult]::No) {
+                $e.Cancel = $true
+                return
+            } else {
+                # Stop execution
+                Stop-ScriptExecution
+            }
+        }
         
-        # Log UI control values for debugging
-        Write-DetailedLog "Server: $serverName" -LogLevel "DEBUG"
-        Write-DetailedLog "Username: $username" -LogLevel "DEBUG"
-        Write-DetailedLog "Password Length: $($securePassword?.Length -eq $null)" -LogLevel "DEBUG"
-
-        # Validate input
-        if ([string]::IsNullOrWhiteSpace($serverName)) {
-            throw "Server address cannot be empty"
+        # Save settings before closing
+        try {
+            Save-AllSettings
+            Write-Log "Settings saved before closing" -Level "INFO"
+        } catch {
+            Write-Log "Error saving settings before closing: $($_.Exception.Message)" -Level "WARNING"
         }
+        
+        Write-Log "Main form closing completed" -Level "INFO"
+        
+    } catch {
+        Write-Log "Error during main form closing: $($_.Exception.Message)" -Level "ERROR"
+    }
+}
 
-        # Determine credentials
-        $Credential = $null
-        $useCurrentCreds = $false
-
-        # Check if UseCurrentCredentials checkbox exists and is checked
-        if ($UseCurrentCredentials -and $UseCurrentCredentials.Checked) {
-            Write-DetailedLog "Using current Windows credentials" -LogLevel "INFO"
-            $useCurrentCreds = $true
-        }
-        else {
-            # Validate username and password
-            if ([string]::IsNullOrWhiteSpace($username) -or ($securePassword -eq $null)) {
-                throw "Username and Password are required when not using current credentials"
+$lvScripts_SelectedIndexChanged = {
+    try {
+        # Find the ListView control safely
+        $scriptsListView = $mainForm.Controls.Find("lvScripts", $true)
+        if (-not $scriptsListView) { $scriptsListView = $mainForm.Controls.Find("listViewScripts", $true) }
+        
+        if ($scriptsListView -and $scriptsListView.Count -gt 0) {
+            $lvScripts = $scriptsListView[0]
+            
+            if ($lvScripts.SelectedItems.Count -gt 0) {
+                $selectedIndex = $lvScripts.SelectedItems[0].Index
+                if ($selectedIndex -ge 0 -and $selectedIndex -lt $script:Scripts.Count) {
+                    $selectedScript = $script:Scripts[$selectedIndex]
+                    Load-ScriptDetails -Script $selectedScript
+                    Write-Log "Selected script: $($selectedScript.Name)" -Level "DEBUG"
+                }
+            } else {
+                Clear-ScriptDetails
             }
             
-            # Create credential object with SecureString
-            $Credential = New-Object System.Management.Automation.PSCredential($username, $securePassword)
+            # Update button states
+            Enable-ExecutionControls -Enable $true
         }
-
-        # Ensure PowerCLI is loaded
-        if (-not (Get-Module -ListAvailable -Name VMware.PowerCLI)) {
-            Write-DetailedLog "Installing VMware PowerCLI module" -LogLevel "WARNING"
-            Install-Module -Name VMware.PowerCLI -Force -Scope CurrentUser
-        }
-
-        # Import PowerCLI module
-        #Import-Module VMware.PowerCLI
         
-        # Suppress PowerCLI warnings
-        Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false
-
-        # Attempt connection
-        Write-DetailedLog "Connecting to vCenter Server: $serverName" -LogLevel "INFO"
-        
-        # Connection logic with different paths for current creds vs specific creds
-        if ($useCurrentCreds) {
-            $connection = Connect-VIServer -Server $serverName -ErrorAction Stop
-        }
-        else {
-            $connection = Connect-VIServer -Server $serverName -Credential $Credential -ErrorAction Stop
-        }
-
-        if ($connection) {
-            Write-DetailedLog "Successfully connected to vCenter Server" -LogLevel "SUCCESS"
-            [System.Windows.Forms.MessageBox]::Show("Connection Successful!", "Connection Test", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            
-            # Disconnect after successful test
-            Disconnect-VIServer -Server $connection -Confirm:$false
-        }
+    } catch {
+        Write-Log "Error in scripts ListView selection changed: $($_.Exception.Message)" -Level "ERROR"
     }
-    catch {
-        $errorMessage = $_.Exception.Message
-        Write-DetailedLog "Connection Failed: $errorMessage" -LogLevel "ERROR"
-        
+}
+
+$lvParameters_SelectedIndexChanged = {
+    try {
+        $btnEditParam.Enabled = ($lvParameters.SelectedItems.Count -gt 0)
+        $btnRemoveParam.Enabled = ($lvParameters.SelectedItems.Count -gt 0)
+    } catch {
+        Write-Log "Error in parameters ListView selection changed: $($_.Exception.Message)" -Level "ERROR"
+    }
+}
+
+#endregion
+
+
+#region Connection Management
+
+$btnTestSourceConnection_Click = {
+    try {
+        Write-Log "Testing source vCenter connection..." -Level "INFO"
+        Invoke-TestSourceConnection
+    } catch {
+        Write-Log "Error in source connection test button: $($_.Exception.Message)" -Level "ERROR"
         [System.Windows.Forms.MessageBox]::Show(
-            "Connection Failed:`n$errorMessage", 
-            "Connection Error", 
-            [System.Windows.Forms.MessageBoxButtons]::OK, 
+            "Error testing source connection: $($_.Exception.Message)",
+            "Connection Test Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Error
         )
     }
-    finally {
-        # Ensure any lingering connections are closed
-        try {
-            Get-VIServer | Disconnect-VIServer -Confirm:$false
-        }
-        catch {}
+}
 
-        # Clear sensitive data
-        if ($securePassword) {
-            $securePassword.Dispose()
-        }
-        if ($Credential) {
-            $Credential.Dispose()
-        }
+$btnTestTargetConnection_Click = {
+    try {
+        Write-Log "Testing target vCenter connection..." -Level "INFO"
+        Invoke-TestTargetConnection
+    } catch {
+        Write-Log "Error in target connection test button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error testing target connection: $($_.Exception.Message)",
+            "Connection Test Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
     }
 }
 
-# Password masking for TextBoxes
-function Set-PasswordTextBoxProperties {
+$btnSaveConnection_Click = {
+    try {
+        Write-Log "Saving connection settings..." -Level "INFO"
+        Save-ConnectionSettings
+        [System.Windows.Forms.MessageBox]::Show(
+            "Connection settings saved successfully!",
+            "Settings Saved",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+    } catch {
+        Write-Log "Error saving connection settings: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error saving connection settings: $($_.Exception.Message)",
+            "Save Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnLoadConnection_Click = {
+    try {
+        Write-Log "Loading connection settings..." -Level "INFO"
+        Load-ConnectionSettings
+        [System.Windows.Forms.MessageBox]::Show(
+            "Connection settings loaded successfully!",
+            "Settings Loaded",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+    } catch {
+        Write-Log "Error loading connection settings: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error loading connection settings: $($_.Exception.Message)",
+            "Load Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+#region Fixed Connection Functions
+
+function Invoke-TestSourceConnection {
+    <#
+    .SYNOPSIS
+        Tests connection to source vCenter server
+    #>
+    try {
+        # Get form values directly
+        $serverInfo = @{
+            Server = $txtSourceServer.Text.Trim()
+            Username = $txtSourceUsername.Text.Trim()
+            Password = $txtSourcePassword.Text
+            UseCurrentCredentials = $chkUseCurrentCredentials.Checked
+        }
+        
+        Write-Log "Testing source connection with server: $($serverInfo.Server)" -Level "DEBUG"
+        Write-Log "Use current credentials: $($serverInfo.UseCurrentCredentials)" -Level "DEBUG"
+        
+        if (-not $serverInfo.UseCurrentCredentials) {
+            Write-Log "Using specified credentials for user: $($serverInfo.Username)" -Level "DEBUG"
+        }
+        
+        Test-vCenterConnection -ServerInfo $serverInfo -ServerType "Source"
+        
+    } catch {
+        Write-Log "Error testing source connection: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Invoke-TestTargetConnection {
+    <#
+    .SYNOPSIS
+        Tests connection to target vCenter server
+    #>
+    try {
+        # Get form values directly
+        $serverInfo = @{
+            Server = $txtTargetServer.Text.Trim()
+            Username = $txtTargetUsername.Text.Trim()
+            Password = $txtTargetPassword.Text
+            UseCurrentCredentials = $chkUseCurrentCredentials.Checked
+        }
+        
+        Write-Log "Testing target connection with server: $($serverInfo.Server)" -Level "DEBUG"
+        Write-Log "Use current credentials: $($serverInfo.UseCurrentCredentials)" -Level "DEBUG"
+        
+        if (-not $serverInfo.UseCurrentCredentials) {
+            Write-Log "Using specified credentials for user: $($serverInfo.Username)" -Level "DEBUG"
+        }
+        
+        Test-vCenterConnection -ServerInfo $serverInfo -ServerType "Target"
+        
+    } catch {
+        Write-Log "Error testing target connection: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Test-vCenterConnection {
+    <#
+    .SYNOPSIS
+        Tests vCenter server connection with improved credential handling
+    #>
     param(
-        [System.Windows.Forms.TextBox]$TextBox
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ServerInfo,
+        
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("Source", "Target")]
+        [string]$ServerType
     )
-
-    $TextBox.PasswordChar = '*'
-    $TextBox.MaxLength = 128  # Optional: set a reasonable max length
+    
+    try {
+        Write-Log "Testing $($ServerType) vCenter connection to: $($ServerInfo.Server)" -Level "INFO"
+        
+        # Validate inputs
+        if ([string]::IsNullOrWhiteSpace($ServerInfo.Server)) {
+            throw "$($ServerType) server address is required"
+        }
+        
+        # Validate credentials if not using current user
+        if (-not $ServerInfo.UseCurrentCredentials) {
+            if ([string]::IsNullOrWhiteSpace($ServerInfo.Username)) {
+                throw "$($ServerType) username is required when not using current credentials"
+            }
+            if ([string]::IsNullOrWhiteSpace($ServerInfo.Password)) {
+                throw "$($ServerType) password is required when not using current credentials"
+            }
+        }
+        
+        # Update status
+        $statusStripLabel.Text = "Testing $($ServerType) connection..."
+        $statusStripLabel.ForeColor = [System.Drawing.Color]::Blue
+        [System.Windows.Forms.Application]::DoEvents()
+        
+        # Import and configure PowerCLI
+        Write-Log "Importing VMware PowerCLI modules..." -Level "DEBUG"
+        #Import-Module VMware.PowerCLI -Force -ErrorAction Stop
+        
+        # Set PowerCLI configuration
+        Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false | Out-Null
+        Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false -Confirm:$false | Out-Null
+        
+        # Prepare credentials
+        $credential = $null
+        if (-not $ServerInfo.UseCurrentCredentials) {
+            Write-Log "Creating credential object for user: $($ServerInfo.Username)" -Level "DEBUG"
+            $securePassword = ConvertTo-SecureString $ServerInfo.Password -AsPlainText -Force
+            $credential = New-Object System.Management.Automation.PSCredential($ServerInfo.Username, $securePassword)
+        } else {
+            Write-Log "Using current user credentials" -Level "DEBUG"
+        }
+        
+        # Test connection
+        Write-Log "Attempting to connect to $($ServerType) vCenter: $($ServerInfo.Server)" -Level "INFO"
+        
+        $connection = if ($credential) {
+            Write-Log "Connecting with specified credentials..." -Level "DEBUG"
+            Connect-VIServer -Server $ServerInfo.Server -Credential $credential -Force -ErrorAction Stop
+        } else {
+            Write-Log "Connecting with current user credentials..." -Level "DEBUG"
+            Connect-VIServer -Server $ServerInfo.Server -Force -ErrorAction Stop
+        }
+        
+        if ($connection) {
+            Write-Log "$($ServerType) vCenter connection successful" -Level "INFO"
+            
+            # Get basic server info
+            $serverVersion = $connection.Version
+            $serverBuild = $connection.Build
+            $connectedUser = $connection.User
+            
+            # Update status
+            $statusStripLabel.Text = "$($ServerType) connection successful"
+            $statusStripLabel.ForeColor = [System.Drawing.Color]::Green
+            
+            # Show success message
+            [System.Windows.Forms.MessageBox]::Show(
+                "$($ServerType) vCenter connection successful!`n`nServer: $($ServerInfo.Server)`nVersion: $($serverVersion)`nBuild: $($serverBuild)`nConnected as: $($connectedUser)",
+                "Connection Successful",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            
+            # Disconnect
+            Disconnect-VIServer -Server $connection -Confirm:$false
+            Write-Log "Disconnected from $($ServerType) vCenter" -Level "INFO"
+            
+        } else {
+            throw "Failed to establish connection to $($ServerType) vCenter"
+        }
+        
+    } catch {
+        Write-Log "vCenter connection test failed for $($ServerType): $($_.Exception.Message)" -Level "ERROR"
+        
+        # Update status
+        $statusStripLabel.Text = "$($ServerType) connection failed"
+        $statusStripLabel.ForeColor = [System.Drawing.Color]::Red
+        
+        # Show error message
+        [System.Windows.Forms.MessageBox]::Show(
+            "$($ServerType) vCenter connection failed:`n`n$($_.Exception.Message)",
+            "Connection Failed",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+        
+        throw
+    }
 }
 
-# Event handler for Source vCenter connection test
-
-# Apply to your password TextBoxes
-Set-PasswordTextBoxProperties -TextBox $mainForm.txtSourcePassword
-Set-PasswordTextBoxProperties -TextBox $mainForm.txtTargetPassword
-
-# Event handler for Source vCenter connection test
-function btnTestSourceConnection_Click {
-    Test-vCenterConnection `
-        -ConnectionButton $mainForm.btnTestSourceConnection `
-        -ServerTextBox $mainForm.txtSourceServer `
-        -UsernameTextBox $mainForm.txtSourceUsername `
-        -PasswordTextBox $mainForm.txtSourcePassword `
-        -UseCurrentCredentials $mainForm.chkUseCurrentCredentials
-}
-
-# Event handler for Target vCenter connection test
-function btnTestTargetConnection_Click {
-    Test-vCenterConnection `
-        -ConnectionButton $mainForm.btnTestTargetConnection `
-        -ServerTextBox $mainForm.txtTargetServer `
-        -UsernameTextBox $mainForm.txtTargetUsername `
-        -PasswordTextBox $mainForm.txtTargetPassword `
-        -UseCurrentCredentials $mainForm.chkUseCurrentCredentials
-}
-
-# Attach event handlers
-$mainForm.btnTestSourceConnection.Add_Click({
-    btnTestSourceConnection_Click
-})
-
-$mainForm.btnTestTargetConnection.Add_Click({
-    btnTestTargetConnection_Click
-})
+#endregion
 
 
 function Save-ConnectionSettings {
-    $script:vCenterConfig.SourcevCenter = $txtSourceServer.Text
-    $script:vCenterConfig.SourceUsername = $txtSourceUsername.Text
-    $script:vCenterConfig.SourcePassword = $txtSourcePassword.Text
-    $script:vCenterConfig.TargetvCenter = $txtTargetServer.Text
-    $script:vCenterConfig.TargetUsername = $txtTargetUsername.Text
-    $script:vCenterConfig.TargetPassword = $txtTargetPassword.Text
-    $script:vCenterConfig.UseCurrentCredentials = $chkUseCurrentCredentials.Checked
-    
-    $saved = Save-MigrationConfig
-    if ($saved) {
-        $statusStripLabel.Text = "Connection settings saved successfully"
-        Write-Log "Connection settings saved successfully"
-    } else {
-        $statusStripLabel.Text = "Failed to save connection settings"
-        Write-Log "Failed to save connection settings" -Level "ERROR"
+    <#
+    .SYNOPSIS
+        Saves connection settings to configuration
+    #>
+    try {
+        Write-Log "Saving connection settings..." -Level "INFO"
+        
+        # Update configuration
+        $script:Config.SourceServer = $txtSourceServer.Text.Trim()
+        $script:Config.SourceUsername = $txtSourceUsername.Text.Trim()
+        $script:Config.TargetServer = $txtTargetServer.Text.Trim()
+        $script:Config.TargetUsername = $txtTargetUsername.Text.Trim()
+        $script:Config.UseCurrentCredentials = $chkUseCurrentCredentials.Checked
+        
+        # Save passwords securely (in production, consider more secure storage)
+        if (-not [string]::IsNullOrWhiteSpace($txtSourcePassword.Text)) {
+            $script:Config.SourcePassword = ConvertTo-SecureString $txtSourcePassword.Text -AsPlainText -Force
+        }
+        
+        if (-not [string]::IsNullOrWhiteSpace($txtTargetPassword.Text)) {
+            $script:Config.TargetPassword = ConvertTo-SecureString $txtTargetPassword.Text -AsPlainText -Force
+        }
+        
+        # Save to file
+        Save-Configuration -Config $script:Config
+        
+        Write-Log "Connection settings saved successfully" -Level "INFO"
+        
+    } catch {
+        Write-Log "Error saving connection settings: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
 }
 
 function Load-ConnectionSettings {
-    $loaded = Load-MigrationConfig
-    if ($loaded) {
-        Load-FormSettings
-        $statusStripLabel.Text = "Connection settings loaded successfully"
-        Write-Log "Connection settings loaded successfully"
-    } else {
-        $statusStripLabel.Text = "Failed to load connection settings"
-        Write-Log "Failed to load connection settings" -Level "WARNING"
-    }
-}
-
-#endregion
-
-#region Script Management Functions
-
-function Load-ScriptsList {
+    <#
+    .SYNOPSIS
+        Loads connection settings from configuration
+    #>
     try {
-        # Clear the ListView
-        $lvScripts.Items.Clear()
+        Write-Log "Loading connection settings..." -Level "INFO"
         
-        # Sort scripts by order
-        $sortedScripts = $script:Scripts | Sort-Object -Property Order
+        # Load configuration
+        $script:Config = Load-Configuration
         
-        # Add each script to the ListView
-        foreach ($script in $sortedScripts) {
-            $item = New-Object System.Windows.Forms.ListViewItem
-            $item.Text = $script.Order.ToString()
-            $item.SubItems.Add($script.Name)
-            $item.SubItems.Add($script.Enabled.ToString())
-            $lvScripts.Items.Add($item)
+        # Update form controls
+        $txtSourceServer.Text = $script:Config.SourceServer
+        $txtSourceUsername.Text = $script:Config.SourceUsername
+        $txtTargetServer.Text = $script:Config.TargetServer
+        $txtTargetUsername.Text = $script:Config.TargetUsername
+        $chkUseCurrentCredentials.Checked = $script:Config.UseCurrentCredentials
+        
+        # Load passwords (decrypt if needed)
+        if ($script:Config.SourcePassword -is [System.Security.SecureString]) {
+            $ptr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($script:Config.SourcePassword)
+            try {
+                $txtSourcePassword.Text = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+            } finally {
+                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
+            }
         }
         
-        Write-Log "Loaded scripts list"
-    }
-    catch {
-        Write-Log "Error loading scripts list: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error loading scripts list: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        if ($script:Config.TargetPassword -is [System.Security.SecureString]) {
+            $ptr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($script:Config.TargetPassword)
+            try {
+                $txtTargetPassword.Text = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+            } finally {
+                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
+            }
+        }
+        
+        Write-Log "Connection settings loaded successfully" -Level "INFO"
+        
+    } catch {
+        Write-Log "Error loading connection settings: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
 }
 
-function Add-ScriptToList {
-    param (
-        [string]$scriptPath = "",
-        [string]$description = "",
-        [bool]$enabled = $true
-    )
-
+function Check-PowerCLI {
+    <#
+    .SYNOPSIS
+        Checks if VMware PowerCLI is installed and available
+    #>
     try {
-        Write-Log "Starting Add-ScriptToList function"
+        $powerCLIModule = Get-Module -Name VMware.PowerCLI -ListAvailable
         
-        # If scriptPath is empty, show file dialog
-        if ([string]::IsNullOrEmpty($scriptPath)) {
-            Write-Log "Opening file dialog to select script"
-            $openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-            $openFileDialog.Filter = "PowerShell Scripts (*.ps1)|*.ps1|All files (*.*)|*.*"
-            $openFileDialog.Title = "Select a PowerShell Script"
+        if ($powerCLIModule) {
+            Write-Log "VMware PowerCLI found: Version $($powerCLIModule.Version)" -Level "INFO"
+            return $true
+        } else {
+            Write-Log "VMware PowerCLI not found" -Level "WARNING"
             
-            if ($openFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-                $scriptPath = $openFileDialog.FileName
-                Write-Log "Selected script: $scriptPath"
+            $result = [System.Windows.Forms.MessageBox]::Show(
+                "VMware PowerCLI is required but not installed.`n`nWould you like to install it now?`n`nNote: This requires administrator privileges.",
+                "PowerCLI Required",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question
+            )
+            
+            if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+                try {
+                    Write-Log "Attempting to install VMware PowerCLI..." -Level "INFO"
+                    Install-Module -Name VMware.PowerCLI -Force -AllowClobber -Scope CurrentUser
+                    Write-Log "VMware PowerCLI installed successfully" -Level "INFO"
+                    return $true
+                } catch {
+                    Write-Log "Failed to install VMware PowerCLI: $($_.Exception.Message)" -Level "ERROR"
+                    [System.Windows.Forms.MessageBox]::Show(
+                        "Failed to install VMware PowerCLI:`n`n$($_.Exception.Message)",
+                        "Installation Failed",
+                        [System.Windows.Forms.MessageBoxButtons]::OK,
+                        [System.Windows.Forms.MessageBoxIcon]::Error
+                    )
+                    return $false
+                }
             } else {
-                Write-Log "File dialog canceled"
                 return $false
             }
         }
-
-        # Get script name from path
-        $scriptName = [System.IO.Path]::GetFileName($scriptPath)
-        Write-Log "Script name: $scriptName"
-
-        # Initialize Scripts collection if it doesn't exist
-        if ($null -eq $script:Scripts) {
-            Write-Log "Initializing Scripts collection"
-            $script:Scripts = @()
-        }
-
-        # Get the next order number
-        $nextOrder = 1
-        if ($script:Scripts.Count -gt 0) {
-            $nextOrder = ($script:Scripts | Measure-Object -Property Order -Maximum).Maximum + 1
-        }
-        Write-Log "Next order number: $nextOrder"
-
-        # Add to scripts collection first
-        Write-Log "Adding script to collection"
-        $script:Scripts += @{
-            Order = $nextOrder
-            Name = $scriptName
-            Path = $scriptPath
-            Description = $description
-            Enabled = $enabled
-            Parameters = @()
-        }
-
-        # Now try to add to ListView
-        Write-Log "Creating ListViewItem"
-        $item = New-Object System.Windows.Forms.ListViewItem
-        
-        Write-Log "Setting ListViewItem properties"
-        $item.Text = $nextOrder.ToString()
-        
-        Write-Log "Adding first subitem"
-        $item.SubItems.Add($scriptName)
-        
-        Write-Log "Adding second subitem"
-        $item.SubItems.Add($enabled.ToString())
-
-        Write-Log "Adding item to ListView"
-        $lvScripts.Items.Add($item)
-
-        Write-Log "Successfully added script: $scriptPath"
-        return $true
-    }
-    catch {
-        Write-Log "Error adding script: $($_.Exception.Message)" -Level "Error"
-        Write-Log "Stack trace: $($_.ScriptStackTrace)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error adding script: $($_.Exception.Message)`n`nStack trace: $($_.ScriptStackTrace)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+    } catch {
+        Write-Log "Error checking PowerCLI: $($_.Exception.Message)" -Level "ERROR"
         return $false
     }
 }
 
-function Remove-ScriptFromList {
+#endregion
+
+
+#region Script Management
+
+$btnAddScript_Click = {
     try {
-        # Check if a script is selected
+        Write-Log "Adding new script..." -Level "INFO"
+        Add-NewScript
+    } catch {
+        Write-Log "Error in add script button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error adding script: $($_.Exception.Message)",
+            "Add Script Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnRemoveScript_Click = {
+    try {
+        Write-Log "Removing selected script..." -Level "INFO"
+        Remove-SelectedScript
+    } catch {
+        Write-Log "Error in remove script button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error removing script: $($_.Exception.Message)",
+            "Remove Script Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnMoveUp_Click = {
+    try {
+        Write-Log "Moving script up..." -Level "DEBUG"
+        Move-ScriptUp
+    } catch {
+        Write-Log "Error in move up button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error moving script up: $($_.Exception.Message)",
+            "Move Script Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnMoveDown_Click = {
+    try {
+        Write-Log "Moving script down..." -Level "DEBUG"
+        Move-ScriptDown
+    } catch {
+        Write-Log "Error in move down button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error moving script down: $($_.Exception.Message)",
+            "Move Script Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnBrowse_Click = {
+    try {
+        Write-Log "Browsing for script file..." -Level "DEBUG"
+        Browse-ScriptFile
+    } catch {
+        Write-Log "Error in browse button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error browsing for script: $($_.Exception.Message)",
+            "Browse Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnSaveScriptDetails_Click = {
+    try {
+        Write-Log "Saving script details..." -Level "INFO"
+        Save-ScriptDetails
+    } catch {
+        Write-Log "Error in save script details button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error saving script details: $($_.Exception.Message)",
+            "Save Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+function Add-NewScript {
+    <#
+    .SYNOPSIS
+        Adds a new script to the collection via file dialog with double-click prevention
+    #>
+    
+    # Prevent multiple simultaneous executions
+    if ($script:AddingScript) {
+        Write-Log "Add script operation already in progress, ignoring duplicate call" -Level "DEBUG"
+        return
+    }
+    
+    try {
+        $script:AddingScript = $true
+        Write-Log "Starting add new script operation..." -Level "DEBUG"
+        
+        # Configure file dialog
+        if (-not $script:openFileDialog1) {
+            $script:openFileDialog1 = New-Object System.Windows.Forms.OpenFileDialog
+        }
+        
+        $script:openFileDialog1.Filter = "PowerShell Scripts (*.ps1)|*.ps1|All Files (*.*)|*.*"
+        $script:openFileDialog1.Title = "Select PowerShell Script"
+        $script:openFileDialog1.Multiselect = $false
+        $script:openFileDialog1.InitialDirectory = $script:AppRoot
+        $script:openFileDialog1.RestoreDirectory = $true
+        
+        Write-Log "Showing file dialog..." -Level "DEBUG"
+        $dialogResult = $script:openFileDialog1.ShowDialog($mainForm)
+        
+        if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
+            $scriptPath = $script:openFileDialog1.FileName
+            
+            Write-Log "User selected script file: $($scriptPath)" -Level "INFO"
+            
+            # Check if script already exists
+            $existingScript = $script:Scripts | Where-Object { $_.Path -eq $scriptPath }
+            if ($existingScript) {
+                Write-Log "Script already exists in collection: $($scriptPath)" -Level "WARNING"
+                [System.Windows.Forms.MessageBox]::Show(
+                    "This script is already in the list.",
+                    "Duplicate Script",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
+                return
+            }
+            
+            # Validate script file exists
+            if (-not (Test-Path -Path $scriptPath)) {
+                Write-Log "Selected script file does not exist: $($scriptPath)" -Level "ERROR"
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Selected script file does not exist.",
+                    "File Not Found",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Error
+                )
+                return
+            }
+            
+            # Create new script object
+            $newScript = [PSCustomObject]@{
+                Name = [System.IO.Path]::GetFileNameWithoutExtension($scriptPath)
+                Path = $scriptPath
+                Description = ""
+                Enabled = $true
+                Order = $script:Scripts.Count + 1
+                Parameters = @()
+            }
+            
+            # Add to collection
+            $script:Scripts += $newScript
+            
+            Write-Log "Script added successfully: $($newScript.Name)" -Level "INFO"
+            
+            # Update ListView
+            Update-ScriptsListView
+            
+            # Select the new script
+            $scriptsListView = $mainForm.Controls.Find("lvScripts", $true)
+            if ($scriptsListView -and $scriptsListView.Count -gt 0) {
+                $lvScripts = $scriptsListView[0]
+                if ($lvScripts.Items.Count -gt 0) {
+                    $newIndex = $script:Scripts.Count - 1
+                    $lvScripts.Items[$newIndex].Selected = $true
+                    $lvScripts.Items[$newIndex].EnsureVisible()
+                    $lvScripts.Select()
+                }
+            }
+            
+            # Auto-detect parameters
+            try {
+                Write-Log "Auto-detecting parameters for: $($newScript.Name)" -Level "DEBUG"
+                $detectedParams = Detect-ScriptParameters -Script $newScript
+                if ($detectedParams.Count -gt 0) {
+                    $newScript.Parameters = $detectedParams
+                    Write-Log "Auto-detected $($detectedParams.Count) parameters for: $($newScript.Name)" -Level "INFO"
+                    
+                    # Refresh display if this script is selected
+                    Load-ScriptDetails -Script $newScript
+                }
+            } catch {
+                Write-Log "Could not auto-detect parameters for $($newScript.Name): $($_.Exception.Message)" -Level "WARNING"
+            }
+            
+        } else {
+            Write-Log "User cancelled script selection" -Level "DEBUG"
+        }
+        
+    } catch {
+        Write-Log "Error adding new script: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error adding script: $($_.Exception.Message)",
+            "Add Script Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    } finally {
+        $script:AddingScript = $false
+        Write-Log "Add script operation completed" -Level "DEBUG"
+    }
+}
+
+function Remove-SelectedScript {
+    <#
+    .SYNOPSIS
+        Removes the selected script from the collection
+    #>
+    try {
         if ($lvScripts.SelectedItems.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a script to remove.", "No Script Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please select a script to remove.",
+                "No Selection",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
             return
         }
         
-        # Get the selected script
-        $selectedIndex = $lvScripts.SelectedIndices[0]
-        $selectedOrder = [int]$lvScripts.Items[$selectedIndex].Text
+        $selectedIndex = $lvScripts.SelectedItems[0].Index
+        $scriptToRemove = $script:Scripts[$selectedIndex]
         
-        # Confirm deletion
-        $scriptName = $lvScripts.Items[$selectedIndex].SubItems[1].Text
-        $result = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to remove the script '$scriptName'?", "Confirm Removal", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
+        $result = [System.Windows.Forms.MessageBox]::Show(
+            "Are you sure you want to remove the script '$($scriptToRemove.Name)'?",
+            "Confirm Removal",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Question
+        )
         
         if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
-            # Remove from ListView
-            $lvScripts.Items.RemoveAt($selectedIndex)
+            # Remove from collection
+            $script:Scripts = $script:Scripts | Where-Object { $_.Path -ne $scriptToRemove.Path }
             
-            # Remove from scripts collection
-            $script:Scripts = $script:Scripts | Where-Object { $_.Order -ne $selectedOrder }
+            # Update order numbers
+            for ($i = 0; $i -lt $script:Scripts.Count; $i++) {
+                $script:Scripts[$i].Order = $i + 1
+            }
             
-            # Clear the details
+            # Update ListView
+            Update-ScriptsListView
+            
+            # Clear script details
             Clear-ScriptDetails
             
-            Write-Log "Removed script: $scriptName"
+            Write-Log "Script removed successfully: $($scriptToRemove.Name)" -Level "INFO"
         }
-    }
-    catch {
-        Write-Log "Error removing script: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error removing script: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        
+    } catch {
+        Write-Log "Error removing selected script: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
 }
 
 function Move-ScriptUp {
+    <#
+    .SYNOPSIS
+        Moves the selected script up in the execution order
+    #>
     try {
-        # Check if a script is selected
         if ($lvScripts.SelectedItems.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a script to move.", "No Script Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
             return
         }
         
-        # Get the selected script
-        $selectedIndex = $lvScripts.SelectedIndices[0]
+        $selectedIndex = $lvScripts.SelectedItems[0].Index
         
-        # Check if it's already at the top
         if ($selectedIndex -eq 0) {
-            return
+            return # Already at top
         }
         
-        # Get the current and previous script
-        $currentScript = $script:Scripts | Where-Object { $_.Order -eq [int]$lvScripts.Items[$selectedIndex].Text }
-        $previousScript = $script:Scripts | Where-Object { $_.Order -eq [int]$lvScripts.Items[$selectedIndex - 1].Text }
+        # Swap scripts
+        $temp = $script:Scripts[$selectedIndex]
+        $script:Scripts[$selectedIndex] = $script:Scripts[$selectedIndex - 1]
+        $script:Scripts[$selectedIndex - 1] = $temp
         
-        # Swap their order
-        $tempOrder = $currentScript.Order
-        $currentScript.Order = $previousScript.Order
-        $previousScript.Order = $tempOrder
+        # Update order numbers
+        $script:Scripts[$selectedIndex].Order = $selectedIndex + 1
+        $script:Scripts[$selectedIndex - 1].Order = $selectedIndex
         
-        # Update the ListView
-        $lvScripts.Items[$selectedIndex].Text = $currentScript.Order.ToString()
-        $lvScripts.Items[$selectedIndex - 1].Text = $previousScript.Order.ToString()
+        # Update ListView
+        Update-ScriptsListView
         
-        # Refresh the ListView to reflect the new order
-        Load-ScriptsList
-        
-        # Select the moved item
+        # Maintain selection
         $lvScripts.Items[$selectedIndex - 1].Selected = $true
+        $lvScripts.Select()
         
-        Write-Log "Moved script up: $($currentScript.Name)"
-    }
-    catch {
-        Write-Log "Error moving script up: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error moving script up: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        Write-Log "Script moved up: $($temp.Name)" -Level "DEBUG"
+        
+    } catch {
+        Write-Log "Error moving script up: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
 }
 
 function Move-ScriptDown {
-    try {
-        # Check if a script is selected
-        if ($lvScripts.SelectedItems.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a script to move.", "No Script Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            return
-        }
-        
-        # Get the selected script
-        $selectedIndex = $lvScripts.SelectedIndices[0]
-        
-        # Check if it's already at the bottom
-        if ($selectedIndex -eq ($lvScripts.Items.Count - 1)) {
-            return
-        }
-        
-        # Get the current and next script
-        $currentScript = $script:Scripts | Where-Object { $_.Order -eq [int]$lvScripts.Items[$selectedIndex].Text }
-        $nextScript = $script:Scripts | Where-Object { $_.Order -eq [int]$lvScripts.Items[$selectedIndex + 1].Text }
-        
-        # Swap their order
-        $tempOrder = $currentScript.Order
-        $currentScript.Order = $nextScript.Order
-        $nextScript.Order = $tempOrder
-        
-        # Update the ListView
-        $lvScripts.Items[$selectedIndex].Text = $currentScript.Order.ToString()
-        $lvScripts.Items[$selectedIndex + 1].Text = $nextScript.Order.ToString()
-        
-        # Refresh the ListView to reflect the new order
-        Load-ScriptsList
-        
-        # Select the moved item
-        $lvScripts.Items[$selectedIndex + 1].Selected = $true
-        
-        Write-Log "Moved script down: $($currentScript.Name)"
-    }
-    catch {
-        Write-Log "Error moving script down: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error moving script down: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-#endregion
-
-#region Script Details Functions
-
-function Load-ScriptDetails {
-    try {
-        # Check if a script is selected
-        if ($lvScripts.SelectedItems.Count -eq 0) {
-            # Clear the details
-            Clear-ScriptDetails
-            return
-        }
-        
-        # Get the selected script
-        $selectedIndex = $lvScripts.SelectedIndices[0]
-        $selectedOrder = [int]$lvScripts.Items[$selectedIndex].Text
-        $selectedScript = $script:Scripts | Where-Object { $_.Order -eq $selectedOrder }
-        
-        if ($null -eq $selectedScript) {
-            Clear-ScriptDetails
-            return
-        }
-        
-        # Fill in the details
-        $txtScriptPath.Text = $selectedScript.Path
-        $txtScriptDescription.Text = $selectedScript.Description
-        $chkScriptEnabled.Checked = $selectedScript.Enabled
-        
-        # Clear and fill parameters
-        $lvParameters.Items.Clear()
-        foreach ($param in $selectedScript.Parameters) {
-            $paramItem = New-Object System.Windows.Forms.ListViewItem
-            $paramItem.Text = $param.Name
-            $paramItem.SubItems.Add($param.Value)
-            $paramItem.SubItems.Add($param.Type)
-            $lvParameters.Items.Add($paramItem)
-        }
-        
-        # Enable the details controls
-        $grpScriptDetails.Enabled = $true
-        
-        Write-Log "Loaded details for script: $($selectedScript.Name)"
-    }
-    catch {
-        Write-Log "Error loading script details: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error loading script details: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-function Clear-ScriptDetails {
-    try {
-        $txtScriptPath.Text = ""
-        $txtScriptDescription.Text = ""
-        $chkScriptEnabled.Checked = $true
-        $lvParameters.Items.Clear()
-        $grpScriptDetails.Enabled = $false
-    }
-    catch {
-        Write-Log "Error clearing script details: $($_.Exception.Message)" -Level "Error"
-    }
-}
-
-function Save-ScriptDetails {
+    <#
+    .SYNOPSIS
+        Moves the selected script down in the execution order
+    #>
     try {
         if ($lvScripts.SelectedItems.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a script to save details for", "No Script Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
             return
         }
         
-        $selectedIndex = $lvScripts.SelectedIndices[0]
-        $selectedOrder = [int]$lvScripts.Items[$selectedIndex].Text
-        $selectedScript = $script:Scripts | Where-Object { $_.Order -eq $selectedOrder }
+        $selectedIndex = $lvScripts.SelectedItems[0].Index
         
-        # Update script details
-        $selectedScript.Path = $txtScriptPath.Text
-        $selectedScript.Description = $txtScriptDescription.Text
-        $selectedScript.Enabled = $chkScriptEnabled.Checked
+        if ($selectedIndex -eq ($script:Scripts.Count - 1)) {
+            return # Already at bottom
+        }
+        
+        # Swap scripts
+        $temp = $script:Scripts[$selectedIndex]
+        $script:Scripts[$selectedIndex] = $script:Scripts[$selectedIndex + 1]
+        $script:Scripts[$selectedIndex + 1] = $temp
+        
+        # Update order numbers
+        $script:Scripts[$selectedIndex].Order = $selectedIndex + 1
+        $script:Scripts[$selectedIndex + 1].Order = $selectedIndex + 2
         
         # Update ListView
-        $lvScripts.Items[$selectedIndex].SubItems[1].Text = [System.IO.Path]::GetFileName($txtScriptPath.Text)
-        $lvScripts.Items[$selectedIndex].SubItems[2].Text = $chkScriptEnabled.Checked.ToString()
+        Update-ScriptsListView
         
-        Write-Log "Saved details for script: $($selectedScript.Name)"
-        $statusStripLabel.Text = "Saved script details"
+        # Maintain selection
+        $lvScripts.Items[$selectedIndex + 1].Selected = $true
+        $lvScripts.Select()
         
-        [System.Windows.Forms.MessageBox]::Show("Script details saved successfully", "Save Complete", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-    }
-    catch {
-        Write-Log "Error saving script details: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error saving script details: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        Write-Log "Script moved down: $($temp.Name)" -Level "DEBUG"
+        
+    } catch {
+        Write-Log "Error moving script down: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
 }
 
 function Browse-ScriptFile {
+    <#
+    .SYNOPSIS
+        Opens file dialog to browse for script file and updates the path textbox
+    #>
     try {
-        $openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-        $openFileDialog.Filter = "PowerShell Scripts (*.ps1)|*.ps1|All files (*.*)|*.*"
-        $openFileDialog.Title = "Select PowerShell Script"
+        $openFileDialog1.Filter = "PowerShell Scripts (*.ps1)|*.ps1|All Files (*.*)|*.*"
+        $openFileDialog1.Title = "Select PowerShell Script"
+        $openFileDialog1.Multiselect = $false
         
-        if ($script:config.ScriptsFolder -and (Test-Path $script:config.ScriptsFolder)) {
-            $openFileDialog.InitialDirectory = $script:config.ScriptsFolder
+        if ($openFileDialog1.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $txtScriptPath.Text = $openFileDialog1.FileName
+            
+            # Auto-populate name if empty
+            if ([string]::IsNullOrWhiteSpace($txtScriptName.Text)) {
+                $txtScriptName.Text = [System.IO.Path]::GetFileNameWithoutExtension($openFileDialog1.FileName)
+            }
+            
+            Write-Log "Script path selected: $($openFileDialog1.FileName)" -Level "DEBUG"
         }
         
-        if ($openFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            $txtScriptPath.Text = $openFileDialog.FileName
-        }
+    } catch {
+        Write-Log "Error browsing for script file: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
-    catch {
-        Write-Log "Error browsing for script file: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error browsing for script file: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+}
+
+function Update-ScriptsListView {
+    <#
+    .SYNOPSIS
+        Updates the scripts ListView with current script collection
+    #>
+    try {
+        Write-Log "Updating scripts ListView with $($script:Scripts.Count) scripts..." -Level "DEBUG"
+        
+        # Store current selection
+        $selectedIndex = -1
+        if ($lvScripts.SelectedItems.Count -gt 0) {
+            $selectedIndex = $lvScripts.SelectedItems[0].Index
+        }
+        
+        # Clear existing items
+        $lvScripts.Items.Clear()
+        
+        # Add scripts to ListView
+        for ($i = 0; $i -lt $script:Scripts.Count; $i++) {
+            $scriptItem = $script:Scripts[$i]
+            
+            # Update order to match index
+            $scriptItem.Order = $i + 1
+            
+            # Create ListView item
+            $listViewItem = New-Object System.Windows.Forms.ListViewItem($scriptItem.Order.ToString())
+            $listViewItem.SubItems.Add($scriptItem.Name) | Out-Null
+            $listViewItem.SubItems.Add($scriptItem.Description) | Out-Null
+            $listViewItem.SubItems.Add($scriptItem.Enabled.ToString()) | Out-Null
+            $listViewItem.SubItems.Add($scriptItem.Path) | Out-Null
+            
+            # Color coding for enabled/disabled
+            if (-not $scriptItem.Enabled) {
+                $listViewItem.ForeColor = [System.Drawing.Color]::Gray
+            } else {
+                $listViewItem.ForeColor = [System.Drawing.Color]::Black
+            }
+            
+            $lvScripts.Items.Add($listViewItem) | Out-Null
+        }
+        
+        # Restore selection if valid
+        if ($selectedIndex -ge 0 -and $selectedIndex -lt $lvScripts.Items.Count) {
+            $lvScripts.Items[$selectedIndex].Selected = $true
+            $lvScripts.Items[$selectedIndex].EnsureVisible()
+        }
+        
+        # Update execution controls
+        Enable-ExecutionControls -Enable $true
+        
+        Write-Log "Scripts ListView updated successfully" -Level "DEBUG"
+        
+    } catch {
+        Write-Log "Error updating scripts ListView: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Load-ScriptDetails {
+    <#
+    .SYNOPSIS
+        Loads script details into the form controls with safe control access
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$Script
+    )
+    
+    try {
+        Write-Log "Loading script details for: $($Script.Name)" -Level "DEBUG"
+        
+        # Safely access controls by finding them in the form
+        $scriptNameControl = $mainForm.Controls.Find("txtScriptName", $true)
+        $scriptPathControl = $mainForm.Controls.Find("txtScriptPath", $true)
+        $scriptDescControl = $mainForm.Controls.Find("txtScriptDescription", $true)
+        $scriptEnabledControl = $mainForm.Controls.Find("chkScriptEnabled", $true)
+        
+        # Alternative names to try
+        if (-not $scriptNameControl) { $scriptNameControl = $mainForm.Controls.Find("textBoxScriptName", $true) }
+        if (-not $scriptPathControl) { $scriptPathControl = $mainForm.Controls.Find("textBoxScriptPath", $true) }
+        if (-not $scriptDescControl) { $scriptDescControl = $mainForm.Controls.Find("textBoxDescription", $true) }
+        if (-not $scriptEnabledControl) { $scriptEnabledControl = $mainForm.Controls.Find("checkBoxEnabled", $true) }
+        
+        # Load basic details if controls exist
+        if ($scriptNameControl -and $scriptNameControl.Count -gt 0) {
+            $scriptNameControl[0].Text = $Script.Name
+            Write-Log "Set script name: $($Script.Name)" -Level "DEBUG"
+        } else {
+            Write-Log "Script name control not found" -Level "WARNING"
+        }
+        
+        if ($scriptPathControl -and $scriptPathControl.Count -gt 0) {
+            $scriptPathControl[0].Text = $Script.Path
+            Write-Log "Set script path: $($Script.Path)" -Level "DEBUG"
+        } else {
+            Write-Log "Script path control not found" -Level "WARNING"
+        }
+        
+        if ($scriptDescControl -and $scriptDescControl.Count -gt 0) {
+            $scriptDescControl[0].Text = $Script.Description
+            Write-Log "Set script description" -Level "DEBUG"
+        } else {
+            Write-Log "Script description control not found" -Level "WARNING"
+        }
+        
+        if ($scriptEnabledControl -and $scriptEnabledControl.Count -gt 0) {
+            $scriptEnabledControl[0].Checked = $Script.Enabled
+            Write-Log "Set script enabled: $($Script.Enabled)" -Level "DEBUG"
+        } else {
+            Write-Log "Script enabled control not found" -Level "WARNING"
+        }
+        
+        # Load parameters
+        Load-ParametersListView -Parameters $Script.Parameters
+        
+        Write-Log "Script details loaded successfully" -Level "DEBUG"
+        
+    } catch {
+        Write-Log "Error loading script details: $($_.Exception.Message)" -Level "ERROR"
+        # Don't call Clear-ScriptDetails here to avoid recursion
+    }
+}
+function Clear-ScriptDetails {
+    <#
+    .SYNOPSIS
+        Clears all script detail controls safely
+    #>
+    try {
+        Write-Log "Clearing script details..." -Level "DEBUG"
+        
+        # Safely access controls
+        $scriptNameControl = $mainForm.Controls.Find("txtScriptName", $true)
+        $scriptPathControl = $mainForm.Controls.Find("txtScriptPath", $true)
+        $scriptDescControl = $mainForm.Controls.Find("txtScriptDescription", $true)
+        $scriptEnabledControl = $mainForm.Controls.Find("chkScriptEnabled", $true)
+        
+        # Alternative names
+        if (-not $scriptNameControl) { $scriptNameControl = $mainForm.Controls.Find("textBoxScriptName", $true) }
+        if (-not $scriptPathControl) { $scriptPathControl = $mainForm.Controls.Find("textBoxScriptPath", $true) }
+        if (-not $scriptDescControl) { $scriptDescControl = $mainForm.Controls.Find("textBoxDescription", $true) }
+        if (-not $scriptEnabledControl) { $scriptEnabledControl = $mainForm.Controls.Find("checkBoxEnabled", $true) }
+        
+        # Clear controls if they exist
+        if ($scriptNameControl -and $scriptNameControl.Count -gt 0) {
+            $scriptNameControl[0].Text = ""
+        }
+        
+        if ($scriptPathControl -and $scriptPathControl.Count -gt 0) {
+            $scriptPathControl[0].Text = ""
+        }
+        
+        if ($scriptDescControl -and $scriptDescControl.Count -gt 0) {
+            $scriptDescControl[0].Text = ""
+        }
+        
+        if ($scriptEnabledControl -and $scriptEnabledControl.Count -gt 0) {
+            $scriptEnabledControl[0].Checked = $true
+        }
+        
+        # Clear parameters
+        $parametersControl = $mainForm.Controls.Find("lvParameters", $true)
+        if (-not $parametersControl) { $parametersControl = $mainForm.Controls.Find("listViewParameters", $true) }
+        
+        if ($parametersControl -and $parametersControl.Count -gt 0) {
+            $parametersControl[0].Items.Clear()
+        }
+        
+        Write-Log "Script details cleared" -Level "DEBUG"
+        
+    } catch {
+        Write-Log "Error clearing script details: $($_.Exception.Message)" -Level "ERROR"
+    }
+}
+
+function Save-ScriptDetails {
+    <#
+    .SYNOPSIS
+        Saves the current script details to the selected script safely
+    #>
+    try {
+        # Find the scripts ListView
+        $scriptsListView = $mainForm.Controls.Find("lvScripts", $true)
+        if (-not $scriptsListView) { $scriptsListView = $mainForm.Controls.Find("listViewScripts", $true) }
+        
+        if (-not $scriptsListView -or $scriptsListView.Count -eq 0) {
+            Write-Log "Scripts ListView not found" -Level "ERROR"
+            return
+        }
+        
+        $lvScripts = $scriptsListView[0]
+        
+        if ($lvScripts.SelectedItems.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please select a script to save details for.",
+                "No Selection",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            return
+        }
+        
+        # Get form controls
+        $scriptNameControl = $mainForm.Controls.Find("txtScriptName", $true)
+        $scriptPathControl = $mainForm.Controls.Find("txtScriptPath", $true)
+        $scriptDescControl = $mainForm.Controls.Find("txtScriptDescription", $true)
+        $scriptEnabledControl = $mainForm.Controls.Find("chkScriptEnabled", $true)
+        
+        # Alternative names
+        if (-not $scriptNameControl) { $scriptNameControl = $mainForm.Controls.Find("textBoxScriptName", $true) }
+        if (-not $scriptPathControl) { $scriptPathControl = $mainForm.Controls.Find("textBoxScriptPath", $true) }
+        if (-not $scriptDescControl) { $scriptDescControl = $mainForm.Controls.Find("textBoxDescription", $true) }
+        if (-not $scriptEnabledControl) { $scriptEnabledControl = $mainForm.Controls.Find("checkBoxEnabled", $true) }
+        
+        # Validate required controls exist
+        if (-not $scriptNameControl -or $scriptNameControl.Count -eq 0) {
+            Write-Log "Script name control not found" -Level "ERROR"
+            return
+        }
+        
+        if (-not $scriptPathControl -or $scriptPathControl.Count -eq 0) {
+            Write-Log "Script path control not found" -Level "ERROR"
+            return
+        }
+        
+        # Get values
+        $scriptName = $scriptNameControl[0].Text.Trim()
+        $scriptPath = $scriptPathControl[0].Text.Trim()
+        $scriptDesc = if ($scriptDescControl -and $scriptDescControl.Count -gt 0) { $scriptDescControl[0].Text.Trim() } else { "" }
+        $scriptEnabled = if ($scriptEnabledControl -and $scriptEnabledControl.Count -gt 0) { $scriptEnabledControl[0].Checked } else { $true }
+        
+        # Validate inputs
+        if ([string]::IsNullOrWhiteSpace($scriptName)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Script name is required.",
+                "Validation Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            return
+        }
+        
+        if ([string]::IsNullOrWhiteSpace($scriptPath)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Script path is required.",
+                "Validation Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            return
+        }
+        
+        if (-not (Test-Path -Path $scriptPath)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Script file does not exist: $($scriptPath)",
+                "File Not Found",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            return
+        }
+        
+        # Get selected script
+        $selectedIndex = $lvScripts.SelectedItems[0].Index
+        $selectedScript = $script:Scripts[$selectedIndex]
+        
+        # Update script details
+        $selectedScript.Name = $scriptName
+        $selectedScript.Path = $scriptPath
+        $selectedScript.Description = $scriptDesc
+        $selectedScript.Enabled = $scriptEnabled
+        
+        # Update parameters from ListView
+        $selectedScript.Parameters = Get-ParametersFromListView
+        
+        # Update ListView
+        Update-ScriptsListView
+        
+        # Maintain selection
+        if ($selectedIndex -lt $lvScripts.Items.Count) {
+            $lvScripts.Items[$selectedIndex].Selected = $true
+        }
+        
+        # Save configuration
+        Save-Configuration -Config $script:Config
+        
+        Write-Log "Script details saved successfully: $($selectedScript.Name)" -Level "INFO"
+        
+        [System.Windows.Forms.MessageBox]::Show(
+            "Script details saved successfully!",
+            "Save Successful",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+        
+    } catch {
+        Write-Log "Error saving script details: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error saving script details: $($_.Exception.Message)",
+            "Save Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+function Get-SelectedScript {
+    <#
+    .SYNOPSIS
+        Gets the currently selected script object
+    #>
+    try {
+        if ($lvScripts.SelectedItems.Count -gt 0) {
+            $selectedIndex = $lvScripts.SelectedItems[0].Index
+            return $script:Scripts[$selectedIndex]
+        }
+        return $null
+    } catch {
+        Write-Log "Error getting selected script: $($_.Exception.Message)" -Level "ERROR"
+        return $null
     }
 }
 
 #endregion
 
-#region Parameter Management Functions
+#region Parameter Management
 
-function Detect-ScriptParameters {
-    # Get the selected script
-    $selectedIndex = $lvScripts.SelectedIndices[0]
-    if ($selectedIndex -eq $null) {
-        [System.Windows.Forms.MessageBox]::Show("Please select a script first.", "No Script Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        return
-    }
-
-    $scriptPath = $script:Scripts[$selectedIndex].Path
-    if (-not (Test-Path $scriptPath)) {
-        [System.Windows.Forms.MessageBox]::Show("Script file not found: $scriptPath", "File Not Found", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        return
-    }
-
+$btnAddParam_Click = {
     try {
-        # Clear existing parameters
-        $lvParameters.Items.Clear()
-        
-        # Read the script content
-        $scriptContent = Get-Content -Path $scriptPath -Raw -ErrorAction Stop
-        
-        Write-Log "Detecting parameters for script: $scriptPath"
-        
-        # Parse the script using AST
-        $ast = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$null, [ref]$null)
-        
-        # Find the param block
-        $paramBlock = $ast.ParamBlock
-        if ($null -eq $paramBlock -or $null -eq $paramBlock.Parameters -or $paramBlock.Parameters.Count -eq 0) {
-            Write-Log "No parameters found in script: $scriptPath"
-            [System.Windows.Forms.MessageBox]::Show("No parameters found in the script.", "No Parameters", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            return
-        }
-        
-        # Extract comment-based help for parameter descriptions
-        $helpContent = $null
-        if ($ast.GetHelpContent()) {
-            $helpContent = $ast.GetHelpContent()
-        }
-        
-        # Process each parameter
-        $detectedParams = @()
-        
-        foreach ($param in $paramBlock.Parameters) {
-            $paramName = $param.Name.VariablePath.UserPath
-            Write-Log "Found parameter: $paramName"
-            
-            # Get parameter type
-            $paramType = "String"  # Default type
-            if ($param.StaticType) {
-                $paramType = $param.StaticType.Name
-            }
-            
-            # Get default value if any
-            $defaultValue = ""
-            if ($param.DefaultValue) {
-                $defaultValue = $param.DefaultValue.Extent.Text
-            }
-            
-            # Get description from help content if available
-            $description = ""
-            if ($helpContent -and $helpContent.Parameters -and $helpContent.Parameters.ContainsKey($paramName)) {
-                $description = $helpContent.Parameters[$paramName]
-            }
-            
-            # Set default values for common parameters
-            if ($paramName -eq "vCenterConnection") {
-                $defaultValue = "SourceConnection"
-            }
-            elseif ($paramName -eq "LogOutputLocation") {
-                $defaultValue = $script:config.LogPath
-            }
-            elseif ($paramName -eq "ReportOutputLocation") {
-                $defaultValue = $script:config.ReportsPath
-            }
-            
-            # Create parameter object
-            $paramObject = [PSCustomObject]@{
-                Name = $paramName
-                Value = $defaultValue
-                Type = $paramType
-                Description = $description
-            }
-            
-            $detectedParams += $paramObject
-            
-            # Add to ListView - with null checks
-            $item = New-Object System.Windows.Forms.ListViewItem($paramName)
-            if ($item -ne $null) {
-                if ($defaultValue -ne $null) {
-                    $item.SubItems.Add($defaultValue.ToString())
-                } else {
-                    $item.SubItems.Add("")
-                }
-                
-                if ($paramType -ne $null) {
-                    $item.SubItems.Add($paramType.ToString())
-                } else {
-                    $item.SubItems.Add("String")
-                }
-                
-                $lvParameters.Items.Add($item)
-            } else {
-                Write-Log "Error: Failed to create ListView item for parameter $paramName" -Level "ERROR"
-            }
-        }
-        
-        # Update the script's parameters
-        $script:Scripts[$selectedIndex].Parameters = $detectedParams
-        
-        Write-Log "Detected $($detectedParams.Count) parameters for script: $scriptPath"
-        [System.Windows.Forms.MessageBox]::Show("Detected $($detectedParams.Count) parameters.", "Parameters Detected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-    }
-    catch {
-        $errorMessage = "Error detecting script parameters: $($_.Exception.Message)"
-        Write-Log $errorMessage -Level "ERROR"
-        Write-Log "Stack Trace: $($_.ScriptStackTrace)" -Level "ERROR"
-        [System.Windows.Forms.MessageBox]::Show($errorMessage, "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        Write-Log "Adding new parameter..." -Level "DEBUG"
+        Add-NewParameter
+    } catch {
+        Write-Log "Error in add parameter button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error adding parameter: $($_.Exception.Message)",
+            "Add Parameter Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
     }
 }
 
-
-function Add-ScriptParameter {
+$btnEditParam_Click = {
     try {
-        if ($lvScripts.SelectedItems.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a script first", "No Script Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-        
-        # Create a parameter input form
+        Write-Log "Editing selected parameter..." -Level "DEBUG"
+        Edit-SelectedParameter
+    } catch {
+        Write-Log "Error in edit parameter button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error editing parameter: $($_.Exception.Message)",
+            "Edit Parameter Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnRemoveParam_Click = {
+    try {
+        Write-Log "Removing selected parameter..." -Level "DEBUG"
+        Remove-SelectedParameter
+    } catch {
+        Write-Log "Error in remove parameter button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error removing parameter: $($_.Exception.Message)",
+            "Remove Parameter Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnDetectParams_Click = {
+    try {
+        Write-Log "Detecting script parameters..." -Level "INFO"
+        Detect-CurrentScriptParameters
+    } catch {
+        Write-Log "Error in detect parameters button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error detecting parameters: $($_.Exception.Message)",
+            "Parameter Detection Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+function Add-NewParameter {
+    <#
+    .SYNOPSIS
+        Opens dialog to add a new parameter
+    #>
+    try {
+        # Create parameter input form
         $paramForm = New-Object System.Windows.Forms.Form
         $paramForm.Text = "Add Parameter"
-        $paramForm.Size = New-Object System.Drawing.Size(400, 250)
-        $paramForm.StartPosition = "CenterParent"
-        $paramForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::Sizable
+        $paramForm.Size = New-Object System.Drawing.Size(400, 300)
+        $paramForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterParent
+        $paramForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
         $paramForm.MaximizeBox = $false
         $paramForm.MinimizeBox = $false
-        $paramForm.autosize = $true
         
-        # Parameter name label
-        $lblParamName = New-Object System.Windows.Forms.Label
-        $lblParamName.Text = "Parameter Name:"
-        $lblParamName.Location = New-Object System.Drawing.Point(20, 20)
-        $lblParamName.Size = New-Object System.Drawing.Size(120, 20)
-        $paramForm.Controls.Add($lblParamName)
+        # Name label and textbox
+        $lblName = New-Object System.Windows.Forms.Label
+        $lblName.Text = "Parameter Name:"
+        $lblName.Location = New-Object System.Drawing.Point(10, 20)
+        $lblName.Size = New-Object System.Drawing.Size(100, 20)
+        $paramForm.Controls.Add($lblName)
         
-        # Parameter name textbox
-        $txtParamName = New-Object System.Windows.Forms.TextBox
-        $txtParamName.Location = New-Object System.Drawing.Point(150, 20)
-        $txtParamName.Size = New-Object System.Drawing.Size(200, 20)
-        $paramForm.Controls.Add($txtParamName)
+        $txtName = New-Object System.Windows.Forms.TextBox
+        $txtName.Location = New-Object System.Drawing.Point(120, 18)
+        $txtName.Size = New-Object System.Drawing.Size(250, 20)
+        $paramForm.Controls.Add($txtName)
         
-        # Parameter value label
-        $lblParamValue = New-Object System.Windows.Forms.Label
-        $lblParamValue.Text = "Parameter Value:"
-        $lblParamValue.Location = New-Object System.Drawing.Point(20, 50)
-        $lblParamValue.Size = New-Object System.Drawing.Size(120, 20)
-        $paramForm.Controls.Add($lblParamValue)
+        # Value label and textbox
+        $lblValue = New-Object System.Windows.Forms.Label
+        $lblValue.Text = "Parameter Value:"
+        $lblValue.Location = New-Object System.Drawing.Point(10, 50)
+        $lblValue.Size = New-Object System.Drawing.Size(100, 20)
+        $paramForm.Controls.Add($lblValue)
         
-        # Parameter value textbox
-        $txtParamValue = New-Object System.Windows.Forms.TextBox
-        $txtParamValue.Location = New-Object System.Drawing.Point(150, 50)
-        $txtParamValue.Size = New-Object System.Drawing.Size(200, 20)
-        $paramForm.Controls.Add($txtParamValue)
+        $txtValue = New-Object System.Windows.Forms.TextBox
+        $txtValue.Location = New-Object System.Drawing.Point(120, 48)
+        $txtValue.Size = New-Object System.Drawing.Size(250, 20)
+        $paramForm.Controls.Add($txtValue)
         
-        # Parameter type label
-        $lblParamType = New-Object System.Windows.Forms.Label
-        $lblParamType.Text = "Parameter Type:"
-        $lblParamType.Location = New-Object System.Drawing.Point(20, 80)
-        $lblParamType.Size = New-Object System.Drawing.Size(120, 20)
-        $paramForm.Controls.Add($lblParamType)
+        # Type label and combobox
+        $lblType = New-Object System.Windows.Forms.Label
+        $lblType.Text = "Parameter Type:"
+        $lblType.Location = New-Object System.Drawing.Point(10, 80)
+        $lblType.Size = New-Object System.Drawing.Size(100, 20)
+        $paramForm.Controls.Add($lblType)
         
-        # Parameter type combobox
-        $cmbParamType = New-Object System.Windows.Forms.ComboBox
-        $cmbParamType.Location = New-Object System.Drawing.Point(150, 80)
-        $cmbParamType.Size = New-Object System.Drawing.Size(200, 20)
-        $cmbParamType.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
-        $paramTypes = @("String", "Int32", "Double", "Boolean", "DateTime", "PSCredential", "SecureString", "Object")
-        foreach ($type in $paramTypes) {
-            $cmbParamType.Items.Add($type)
+        $cboType = New-Object System.Windows.Forms.ComboBox
+        $cboType.Location = New-Object System.Drawing.Point(120, 78)
+        $cboType.Size = New-Object System.Drawing.Size(150, 20)
+        $cboType.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+        $parameterTypes = @("String", "Int32", "Boolean", "PSCredential", "SecureString", "DateTime", "Double")
+        foreach ($type in $parameterTypes) {
+            $cboType.Items.Add($type) | Out-Null
         }
-        $cmbParamType.SelectedIndex = 0
-        $paramForm.Controls.Add($cmbParamType)
+        $cboType.SelectedIndex = 0
+        $paramForm.Controls.Add($cboType)
         
-        # Use vCenter credentials checkbox
-        $chkUseVCenterCreds = New-Object System.Windows.Forms.CheckBox
-        $chkUseVCenterCreds.Text = "Use vCenter credentials"
-        $chkUseVCenterCreds.Location = New-Object System.Drawing.Point(150, 110)
-        $chkUseVCenterCreds.Size = New-Object System.Drawing.Size(200, 20)
-        $paramForm.Controls.Add($chkUseVCenterCreds)
+        # Description label and textbox
+        $lblDescription = New-Object System.Windows.Forms.Label
+        $lblDescription.Text = "Description:"
+        $lblDescription.Location = New-Object System.Drawing.Point(10, 110)
+        $lblDescription.Size = New-Object System.Drawing.Size(100, 20)
+        $paramForm.Controls.Add($lblDescription)
         
-        # Source or Target radio buttons (only visible when using vCenter credentials)
-        $pnlCredentialType = New-Object System.Windows.Forms.Panel
-        $pnlCredentialType.Location = New-Object System.Drawing.Point(150, 130)
-        $pnlCredentialType.Size = New-Object System.Drawing.Size(200, 30)
-        $pnlCredentialType.Visible = $false
-        $paramForm.Controls.Add($pnlCredentialType)
+        $txtDescription = New-Object System.Windows.Forms.TextBox
+        $txtDescription.Location = New-Object System.Drawing.Point(120, 108)
+        $txtDescription.Size = New-Object System.Drawing.Size(250, 60)
+        $txtDescription.Multiline = $true
+        $txtDescription.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
+        $paramForm.Controls.Add($txtDescription)
         
-        $rbSource = New-Object System.Windows.Forms.RadioButton
-        $rbSource.Text = "Source"
-        $rbSource.Location = New-Object System.Drawing.Point(0, 0)
-        $rbSource.Size = New-Object System.Drawing.Size(80, 20)
-        $rbSource.Checked = $true
-        $pnlCredentialType.Controls.Add($rbSource)
-        
-        $rbTarget = New-Object System.Windows.Forms.RadioButton
-        $rbTarget.Text = "Target"
-        $rbTarget.Location = New-Object System.Drawing.Point(90, 0)
-        $rbTarget.Size = New-Object System.Drawing.Size(80, 20)
-        $pnlCredentialType.Controls.Add($rbTarget)
-        
-        # Show/hide credential options based on checkbox
-        $chkUseVCenterCreds.Add_CheckedChanged({
-            $pnlCredentialType.Visible = $chkUseVCenterCreds.Checked
-            if ($chkUseVCenterCreds.Checked) {
-                $cmbParamType.SelectedItem = "PSCredential"
-                $cmbParamType.Enabled = $false
-                if ($rbSource.Checked) {
-                    $txtParamValue.Text = "SourceCredential"
-                } else {
-                    $txtParamValue.Text = "TargetCredential"
-                }
-            } else {
-                $cmbParamType.Enabled = $true
-            }
-        })
-        
-        $rbSource.Add_CheckedChanged({
-            if ($rbSource.Checked) {
-                $txtParamValue.Text = "SourceCredential"
-            }
-        })
-        
-        $rbTarget.Add_CheckedChanged({
-            if ($rbTarget.Checked) {
-                $txtParamValue.Text = "TargetCredential"
-            }
-        })
-        
-        # OK button
+        # Buttons
         $btnOK = New-Object System.Windows.Forms.Button
         $btnOK.Text = "OK"
+        $btnOK.Location = New-Object System.Drawing.Point(200, 220)
+        $btnOK.Size = New-Object System.Drawing.Size(75, 25)
         $btnOK.DialogResult = [System.Windows.Forms.DialogResult]::OK
-        $btnOK.Location = New-Object System.Drawing.Point(150, 170)
-        $btnOK.Size = New-Object System.Drawing.Size(75, 23)
         $paramForm.Controls.Add($btnOK)
         
-        # Cancel button
         $btnCancel = New-Object System.Windows.Forms.Button
         $btnCancel.Text = "Cancel"
+        $btnCancel.Location = New-Object System.Drawing.Point(295, 220)
+        $btnCancel.Size = New-Object System.Drawing.Size(75, 25)
         $btnCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-        $btnCancel.Location = New-Object System.Drawing.Point(240, 170)
-        $btnCancel.Size = New-Object System.Drawing.Size(75, 23)
         $paramForm.Controls.Add($btnCancel)
         
         $paramForm.AcceptButton = $btnOK
         $paramForm.CancelButton = $btnCancel
         
-        # Show the form
-        $result = $paramForm.ShowDialog()
-        
-        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-            $paramName = $txtParamName.Text.Trim()
-            $paramValue = $txtParamValue.Text
-            $paramType = $cmbParamType.SelectedItem
-            
-            if ([string]::IsNullOrEmpty($paramName)) {
-                [System.Windows.Forms.MessageBox]::Show("Parameter name cannot be empty", "Invalid Input", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        # Show dialog
+        if ($paramForm.ShowDialog($mainForm) -eq [System.Windows.Forms.DialogResult]::OK) {
+            # Validate input
+            if ([string]::IsNullOrWhiteSpace($txtName.Text)) {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Parameter name is required.",
+                    "Validation Error",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
                 return
             }
             
+            # Check for duplicate parameter names
+            $existingParams = Get-ParametersFromListView
+            if ($existingParams | Where-Object { $_.Name -eq $txtName.Text.Trim() }) {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "A parameter with this name already exists.",
+                    "Duplicate Parameter",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
+                return
+            }
+            
+            # Create new parameter
+            $newParameter = [PSCustomObject]@{
+                Name = $txtName.Text.Trim()
+                Value = $txtValue.Text
+                Type = $cboType.SelectedItem.ToString()
+                Description = $txtDescription.Text.Trim()
+            }
+            
             # Add to ListView
-            $item = New-Object System.Windows.Forms.ListViewItem($paramName)
-            $item.SubItems.Add($paramValue)
-            $item.SubItems.Add($paramType)
-            $lvParameters.Items.Add($item)
+            Add-ParameterToListView -Parameter $newParameter
             
-            # Add to script parameters
-            $selectedIndex = $lvScripts.SelectedIndices[0]
-            $selectedOrder = [int]$lvScripts.Items[$selectedIndex].Text
-            $selectedScript = $script:Scripts | Where-Object { $_.Order -eq $selectedOrder }
-            
-            $selectedScript.Parameters += @{
-                Name = $paramName
-                Value = $paramValue
-                Type = $paramType
-            }
-            
-            Write-Log "Added parameter '$($paramName)' to script: $($selectedScript.Name)"
-        }
-    }
-    catch {
-        Write-Log "Error adding parameter: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error adding parameter: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
-}
-
-function Edit-ScriptParameter {
-    # Get selected parameter
-    if ($lvParameters.SelectedItems.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("Please select a parameter to edit.", "No Parameter Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        return
-    }
-    
-    $selectedItem = $lvParameters.SelectedItems[0]
-    $paramName = $selectedItem.Text
-    $paramValue = $selectedItem.SubItems[1].Text
-    $paramType = $selectedItem.SubItems[2].Text
-    
-    # Create a form for editing the parameter
-    $form = New-Object System.Windows.Forms.Form
-    $form.Text = "Edit Parameter"
-    $form.Size = New-Object System.Drawing.Size(450, 400)  # Increased initial size
-    $form.StartPosition = "CenterScreen"
-    $form.FormBorderStyle = "FixedDialog"
-    $form.MaximizeBox = $false
-    $form.MinimizeBox = $false
-    
-    # Parameter Name (read-only)
-    $lblName = New-Object System.Windows.Forms.Label
-    $lblName.Location = New-Object System.Drawing.Point(10, 20)
-    $lblName.Size = New-Object System.Drawing.Size(100, 20)
-    $lblName.Text = "Name:"
-    $form.Controls.Add($lblName)
-    
-    $txtName = New-Object System.Windows.Forms.TextBox
-    $txtName.Location = New-Object System.Drawing.Point(120, 20)
-    $txtName.Size = New-Object System.Drawing.Size(300, 20)  # Wider
-    $txtName.Text = $paramName
-    $txtName.ReadOnly = $true
-    $form.Controls.Add($txtName)
-    
-    # Parameter Type
-    $lblType = New-Object System.Windows.Forms.Label
-    $lblType.Location = New-Object System.Drawing.Point(10, 50)
-    $lblType.Size = New-Object System.Drawing.Size(100, 20)
-    $lblType.Text = "Type:"
-    $form.Controls.Add($lblType)
-    
-    $cboType = New-Object System.Windows.Forms.ComboBox
-    $cboType.Location = New-Object System.Drawing.Point(120, 50)
-    $cboType.Size = New-Object System.Drawing.Size(300, 20)  # Wider
-    $cboType.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
-    
-    # Add common parameter types
-    $paramTypes = @("String", "Int32", "Int64", "Double", "Boolean", "DateTime", "PSCredential", "Object", "Array", "Hashtable")
-    foreach ($type in $paramTypes) {
-        [void]$cboType.Items.Add($type)
-    }
-    
-    # Set the current type
-    if ($cboType.Items.Contains($paramType)) {
-        $cboType.SelectedItem = $paramType
-    } else {
-        # If the type is not in the list, add it and select it
-        [void]$cboType.Items.Add($paramType)
-        $cboType.SelectedItem = $paramType
-    }
-    
-    $form.Controls.Add($cboType)
-    
-    # Parameter Value
-    $lblValue = New-Object System.Windows.Forms.Label
-    $lblValue.Location = New-Object System.Drawing.Point(10, 80)
-    $lblValue.Size = New-Object System.Drawing.Size(100, 20)
-    $lblValue.Text = "Value:"
-    $form.Controls.Add($lblValue)
-    
-    $txtValue = New-Object System.Windows.Forms.TextBox
-    $txtValue.Location = New-Object System.Drawing.Point(120, 80)
-    $txtValue.Size = New-Object System.Drawing.Size(300, 20)  # Wider
-    $txtValue.Text = $paramValue
-    $form.Controls.Add($txtValue)
-    
-    # Special options section
-    $grpSpecialOptions = New-Object System.Windows.Forms.GroupBox
-    $grpSpecialOptions.Location = New-Object System.Drawing.Point(10, 110)
-    $grpSpecialOptions.Size = New-Object System.Drawing.Size(410, 200)  # Much taller and wider
-    $grpSpecialOptions.Text = "Special Options"
-    $form.Controls.Add($grpSpecialOptions)
-    
-    # OK and Cancel buttons - will be positioned later
-    $btnOK = New-Object System.Windows.Forms.Button
-    $btnOK.Size = New-Object System.Drawing.Size(75, 23)
-    $btnOK.Text = "OK"
-    $btnOK.DialogResult = [System.Windows.Forms.DialogResult]::OK
-    $form.AcceptButton = $btnOK
-    $form.Controls.Add($btnOK)
-    
-    $btnCancel = New-Object System.Windows.Forms.Button
-    $btnCancel.Size = New-Object System.Drawing.Size(75, 23)
-    $btnCancel.Text = "Cancel"
-    $btnCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-    $form.CancelButton = $btnCancel
-    $form.Controls.Add($btnCancel)
-    
-    # Add event handler for type change
-    $cboType.Add_SelectedIndexChanged({
-        # Update special options based on the selected type
-        UpdateSpecialOptions
-    })
-    
-    # Function to update special options based on parameter type
-    function UpdateSpecialOptions {
-        # Clear existing controls
-        $grpSpecialOptions.Controls.Clear()
-        
-        $yPos = 25  # Start a bit lower for better spacing
-        $optionSpacing = 35  # Increased spacing between options
-        $hasSpecialOptions = $false
-        $currentType = $cboType.SelectedItem.ToString()
-        
-        # Special handling for credential parameters
-        if ($currentType -eq "PSCredential") {
-            $rbSourceCred = New-Object System.Windows.Forms.RadioButton
-            $rbSourceCred.Location = New-Object System.Drawing.Point(20, $yPos)
-            $rbSourceCred.Size = New-Object System.Drawing.Size(180, 40)  # Larger
-            $rbSourceCred.Text = "Use Source Credentials"
-            $rbSourceCred.Checked = ($txtValue.Text -eq "SourceCredential")
-            $rbSourceCred.Add_Click({
-                $txtValue.Text = "SourceCredential"
-            })
-            $grpSpecialOptions.Controls.Add($rbSourceCred)
-            
-            $rbTargetCred = New-Object System.Windows.Forms.RadioButton
-            $rbTargetCred.Location = New-Object System.Drawing.Point(210, $yPos)
-            $rbTargetCred.Size = New-Object System.Drawing.Size(180, 24)  # Larger
-            $rbTargetCred.Text = "Use Target Credentials"
-            $rbTargetCred.Checked = ($txtValue.Text -eq "TargetCredential")
-            $rbTargetCred.Add_Click({
-                $txtValue.Text = "TargetCredential"
-            })
-            $grpSpecialOptions.Controls.Add($rbTargetCred)
-            
-            $yPos += $optionSpacing
-            $hasSpecialOptions = $true
+            Write-Log "Parameter added: $($newParameter.Name)" -Level "INFO"
         }
         
-        # Special handling for vCenter connection
-        if ($paramName -eq "vCenterConnection" -or $currentType -like "*VIServer*") {
-            $rbSourceConn = New-Object System.Windows.Forms.RadioButton
-            $rbSourceConn.Location = New-Object System.Drawing.Point(20, $yPos)
-            $rbSourceConn.Size = New-Object System.Drawing.Size(180, 24)  # Larger
-            $rbSourceConn.Text = "Use Source Connection"
-            $rbSourceConn.Checked = ($txtValue.Text -eq "SourceConnection")
-            $rbSourceConn.Add_Click({
-                $txtValue.Text = "SourceConnection"
-            })
-            $grpSpecialOptions.Controls.Add($rbSourceConn)
-            
-            $rbTargetConn = New-Object System.Windows.Forms.RadioButton
-            $rbTargetConn.Location = New-Object System.Drawing.Point(210, $yPos)
-            $rbTargetConn.Size = New-Object System.Drawing.Size(180, 24)  # Larger
-            $rbTargetConn.Text = "Use Target Connection"
-            $rbTargetConn.Checked = ($txtValue.Text -eq "TargetConnection")
-            $rbTargetConn.Add_Click({
-                $txtValue.Text = "TargetConnection"
-            })
-            $grpSpecialOptions.Controls.Add($rbTargetConn)
-            
-            $yPos += $optionSpacing
-            $hasSpecialOptions = $true
-        }
+        $paramForm.Dispose()
         
-        # Special handling for vCenter server names or any string parameters that might use vCenter names
-        if ($currentType -eq "String" -and 
-            ($paramName -eq "vCenter" -or 
-             $paramName -like "*vCenterServer*" -or 
-             $paramName -like "*Server*" -or 
-             $paramName -like "*vCenter*" -or 
-             $paramName -like "*Host*")) {
-            
-            # Add a section label
-            $lblServerSection = New-Object System.Windows.Forms.Label
-            $lblServerSection.Location = New-Object System.Drawing.Point(10, $yPos)
-            $lblServerSection.Size = New-Object System.Drawing.Size(380, 20)
-            $lblServerSection.Text = "vCenter Server Options:"
-            $lblServerSection.Font = New-Object System.Drawing.Font($lblServerSection.Font, [System.Drawing.FontStyle]::Bold)
-            $grpSpecialOptions.Controls.Add($lblServerSection)
-            $yPos += 22
-            
-            # Source vCenter Server option
-            $rbSourceServer = New-Object System.Windows.Forms.RadioButton
-            $rbSourceServer.Location = New-Object System.Drawing.Point(20, $yPos)
-            $rbSourceServer.Size = New-Object System.Drawing.Size(180, 24)  # Larger
-            $rbSourceServer.Text = "Use Source vCenter"
-            $rbSourceServer.Checked = ($txtValue.Text -eq "SourcevCenter" -or $txtValue.Text -eq $txtSourceServer.Text)
-            $rbSourceServer.Add_Click({
-                if ($txtSourceServer.Text -ne "") {
-                    $txtValue.Text = $txtSourceServer.Text
-                } else {
-                    $txtValue.Text = "SourcevCenter"
-                }
-            })
-            $grpSpecialOptions.Controls.Add($rbSourceServer)
-            
-            # Target vCenter Server option
-            $rbTargetServer = New-Object System.Windows.Forms.RadioButton
-            $rbTargetServer.Location = New-Object System.Drawing.Point(210, $yPos)
-            $rbTargetServer.Size = New-Object System.Drawing.Size(180, 24)  # Larger
-            $rbTargetServer.Text = "Use Target vCenter"
-            $rbTargetServer.Checked = ($txtValue.Text -eq "TargetvCenter" -or $txtValue.Text -eq $txtTargetServer.Text)
-            $rbTargetServer.Add_Click({
-                if ($txtTargetServer.Text -ne "") {
-                    $txtValue.Text = $txtTargetServer.Text
-                } else {
-                    $txtValue.Text = "TargetvCenter"
-                }
-            })
-            $grpSpecialOptions.Controls.Add($rbTargetServer)
-            
-            $yPos += $optionSpacing
-            $hasSpecialOptions = $true
-        }
-        
-        # Special handling for vCenter names (for parameters that might need the friendly name)
-        if ($currentType -eq "String" -and 
-            ($paramName -eq "vCenterName" -or 
-             $paramName -like "*ServerName*" -or
-             $paramName -like "*SourceVC*" -or 
-             $paramName -like "*DestVC*" -or  
-             $paramName -like "*HostName*" -or 
-             ($paramName -like "*Name*" -and ($paramName -like "*vCenter*" -or $paramName -like "*Server*" -or $paramName -like "*Host*")))) {
-            
-            # Add a section label
-            $lblNameSection = New-Object System.Windows.Forms.Label
-            $lblNameSection.Location = New-Object System.Drawing.Point(10, $yPos)
-            $lblNameSection.Size = New-Object System.Drawing.Size(380, 20)
-            $lblNameSection.Text = "vCenter Name Options:"
-            $lblNameSection.Font = New-Object System.Drawing.Font($lblNameSection.Font, [System.Drawing.FontStyle]::Bold)
-            $grpSpecialOptions.Controls.Add($lblNameSection)
-            $yPos += 22
-            
-            # Source vCenter Name option
-            $lblSourceName = New-Object System.Windows.Forms.Label
-            $lblSourceName.Location = New-Object System.Drawing.Point(20, $yPos)
-            $lblSourceName.Size = New-Object System.Drawing.Size(100, 24)
-            $lblSourceName.Text = "Source Name:"
-            $grpSpecialOptions.Controls.Add($lblSourceName)
-            
-            $btnUseSourceName = New-Object System.Windows.Forms.Button
-            $btnUseSourceName.Location = New-Object System.Drawing.Point(130, $yPos)
-            $btnUseSourceName.Size = New-Object System.Drawing.Size(75, 24)
-            $btnUseSourceName.Text = "Use"
-            $btnUseSourceName.Add_Click({
-                # Extract server name without domain if possible
-                $serverName = $txtSourceServer.Text -split '\.' | Select-Object -First 1
-                $txtValue.Text = $serverName
-            })
-            $grpSpecialOptions.Controls.Add($btnUseSourceName)
-            
-            $yPos += $optionSpacing
-            
-            # Target vCenter Name option
-            $lblTargetName = New-Object System.Windows.Forms.Label
-            $lblTargetName.Location = New-Object System.Drawing.Point(20, $yPos)
-            $lblTargetName.Size = New-Object System.Drawing.Size(100, 24)
-            $lblTargetName.Text = "Target Name:"
-            $grpSpecialOptions.Controls.Add($lblTargetName)
-            
-            $btnUseTargetName = New-Object System.Windows.Forms.Button
-            $btnUseTargetName.Location = New-Object System.Drawing.Point(130, $yPos)
-            $btnUseTargetName.Size = New-Object System.Drawing.Size(75, 24)
-            $btnUseTargetName.Text = "Use"
-            $btnUseTargetName.Add_Click({
-                # Extract server name without domain if possible
-                $serverName = $txtTargetServer.Text -split '\.' | Select-Object -First 1
-                $txtValue.Text = $serverName
-            })
-            $grpSpecialOptions.Controls.Add($btnUseTargetName)
-            
-            $yPos += $optionSpacing
-            $hasSpecialOptions = $true
-        }
-        
-        # Special handling for LogOutputLocation and ReportOutputLocation
-        if ($currentType -eq "String" -and 
-            ($paramName -eq "LogOutputLocation" -or $paramName -like "*LogFile*" -or $paramName -like "*LogPath*")) {
-            
-            # Add a section label
-            $lblLogSection = New-Object System.Windows.Forms.Label
-            $lblLogSection.Location = New-Object System.Drawing.Point(10, $yPos)
-            $lblLogSection.Size = New-Object System.Drawing.Size(380, 20)
-            $lblLogSection.Text = "Log Path Options:"
-            $lblLogSection.Font = New-Object System.Drawing.Font($lblLogSection.Font, [System.Drawing.FontStyle]::Bold)
-            $grpSpecialOptions.Controls.Add($lblLogSection)
-            $yPos += 22
-            
-            $rbDefaultLogPath = New-Object System.Windows.Forms.RadioButton
-            $rbDefaultLogPath.Location = New-Object System.Drawing.Point(20, $yPos)
-            $rbDefaultLogPath.Size = New-Object System.Drawing.Size(180, 24)  # Larger
-            $rbDefaultLogPath.Text = "Use Default Log Path"
-            $rbDefaultLogPath.Checked = ($txtValue.Text -eq $script:config.LogPath)
-            $rbDefaultLogPath.Add_Click({
-                $txtValue.Text = $script:config.LogPath
-            })
-            $grpSpecialOptions.Controls.Add($rbDefaultLogPath)
-            
-            $btnBrowseLogPath = New-Object System.Windows.Forms.Button
-            $btnBrowseLogPath.Location = New-Object System.Drawing.Point(210, $yPos)
-            $btnBrowseLogPath.Size = New-Object System.Drawing.Size(100, 24)
-            $btnBrowseLogPath.Text = "Browse..."
-            $btnBrowseLogPath.Add_Click({
-                $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-                $folderBrowser.Description = "Select Log Folder"
-                $folderBrowser.SelectedPath = $txtValue.Text
-                
-                if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-                    $txtValue.Text = $folderBrowser.SelectedPath
-                }
-            })
-            $grpSpecialOptions.Controls.Add($btnBrowseLogPath)
-            
-            $yPos += $optionSpacing
-            $hasSpecialOptions = $true
-        }
-        
-        if ($currentType -eq "String" -and 
-            ($paramName -eq "ReportOutputLocation" -or $paramName -like "*ReportFile*" -or $paramName -like "*OutputFile*" -or $paramName -like "*ReportPath*")) {
-            
-            # Add a section label
-            $lblReportSection = New-Object System.Windows.Forms.Label
-            $lblReportSection.Location = New-Object System.Drawing.Point(10, $yPos)
-            $lblReportSection.Size = New-Object System.Drawing.Size(380, 20)
-            $lblReportSection.Text = "Report Path Options:"
-            $lblReportSection.Font = New-Object System.Drawing.Font($lblReportSection.Font, [System.Drawing.FontStyle]::Bold)
-            $grpSpecialOptions.Controls.Add($lblReportSection)
-            $yPos += 22
-            
-            $rbDefaultReportPath = New-Object System.Windows.Forms.RadioButton
-            $rbDefaultReportPath.Location = New-Object System.Drawing.Point(20, $yPos)
-            $rbDefaultReportPath.Size = New-Object System.Drawing.Size(180, 24)  # Larger
-            $rbDefaultReportPath.Text = "Use Default Report Path"
-            $rbDefaultReportPath.Checked = ($txtValue.Text -eq $script:config.ReportsPath)
-            $rbDefaultReportPath.Add_Click({
-                $txtValue.Text = $script:config.ReportsPath
-            })
-            $grpSpecialOptions.Controls.Add($rbDefaultReportPath)
-            
-            $btnBrowseReportPath = New-Object System.Windows.Forms.Button
-            $btnBrowseReportPath.Location = New-Object System.Drawing.Point(210, $yPos)
-            $btnBrowseReportPath.Size = New-Object System.Drawing.Size(100, 24)
-            $btnBrowseReportPath.Text = "Browse..."
-            $btnBrowseReportPath.Add_Click({
-                $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-                $folderBrowser.Description = "Select Report Folder"
-                $folderBrowser.SelectedPath = $txtValue.Text
-                
-                if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-                    $txtValue.Text = $folderBrowser.SelectedPath
-                }
-            })
-            $grpSpecialOptions.Controls.Add($btnBrowseReportPath)
-            
-            $yPos += $optionSpacing
-            $hasSpecialOptions = $true
-        }
-        
-        # Add options for any string parameter that might be a filename or path
-        if ($currentType -eq "String" -and 
-            ($paramName -like "*File*" -or $paramName -like "*Path*" -or $paramName -like "*Directory*" -or $paramName -like "*Folder*")) {
-            # Skip if already handled by log or report path handlers
-            if ($paramName -ne "LogOutputLocation" -and 
-                $paramName -ne "ReportOutputLocation" -and 
-                -not ($paramName -like "*LogFile*" -or $paramName -like "*LogPath*") -and
-                -not ($paramName -like "*ReportFile*" -or $paramName -like "*OutputFile*" -or $paramName -like "*ReportPath*")) {
-                
-                # Add a section label
-                $lblFileSection = New-Object System.Windows.Forms.Label
-                $lblFileSection.Location = New-Object System.Drawing.Point(10, $yPos)
-                $lblFileSection.Size = New-Object System.Drawing.Size(380, 20)
-                $lblFileSection.Text = "File/Folder Options:"
-                $lblFileSection.Font = New-Object System.Drawing.Font($lblFileSection.Font, [System.Drawing.FontStyle]::Bold)
-                $grpSpecialOptions.Controls.Add($lblFileSection)
-                $yPos += 22
-                
-                $btnBrowseFile = New-Object System.Windows.Forms.Button
-                $btnBrowseFile.Location = New-Object System.Drawing.Point(20, $yPos)
-                $btnBrowseFile.Size = New-Object System.Drawing.Size(120, 28)  # Larger
-                $btnBrowseFile.Text = "Browse File..."
-                $btnBrowseFile.Add_Click({
-                    $fileDialog = New-Object System.Windows.Forms.OpenFileDialog
-                    $fileDialog.Title = "Select File"
-                    $fileDialog.Filter = "All Files (*.*)|*.*"
-                    
-                    if ($fileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-                        $txtValue.Text = $fileDialog.FileName
-                    }
-                })
-                $grpSpecialOptions.Controls.Add($btnBrowseFile)
-                
-                $btnBrowseFolder = New-Object System.Windows.Forms.Button
-                $btnBrowseFolder.Location = New-Object System.Drawing.Point(150, $yPos)
-                $btnBrowseFolder.Size = New-Object System.Drawing.Size(120, 28)  # Larger
-                $btnBrowseFolder.Text = "Browse Folder..."
-                $btnBrowseFolder.Add_Click({
-                    $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-                    $folderBrowser.Description = "Select Folder"
-                    
-                    if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-                        $txtValue.Text = $folderBrowser.SelectedPath
-                    }
-                })
-                $grpSpecialOptions.Controls.Add($btnBrowseFolder)
-                
-                $yPos += $optionSpacing
-                $hasSpecialOptions = $true
-            }
-        }
-        
-        # Special handling for Boolean type
-        if ($currentType -eq "Boolean") {
-            # Add a section label
-            $lblBoolSection = New-Object System.Windows.Forms.Label
-            $lblBoolSection.Location = New-Object System.Drawing.Point(10, $yPos)
-            $lblBoolSection.Size = New-Object System.Drawing.Size(380, 20)
-            $lblBoolSection.Text = "Boolean Options:"
-            $lblBoolSection.Font = New-Object System.Drawing.Font($lblBoolSection.Font, [System.Drawing.FontStyle]::Bold)
-            $grpSpecialOptions.Controls.Add($lblBoolSection)
-            $yPos += 22
-            
-            $rbTrue = New-Object System.Windows.Forms.RadioButton
-            $rbTrue.Location = New-Object System.Drawing.Point(20, $yPos)
-            $rbTrue.Size = New-Object System.Drawing.Size(100, 24)  # Larger
-            $rbTrue.Text = "True"
-            $rbTrue.Checked = ($txtValue.Text -eq "True" -or $txtValue.Text -eq "$true")
-            $rbTrue.Add_Click({
-                $txtValue.Text = "$true"
-            })
-            $grpSpecialOptions.Controls.Add($rbTrue)
-            
-            $rbFalse = New-Object System.Windows.Forms.RadioButton
-            $rbFalse.Location = New-Object System.Drawing.Point(130, $yPos)
-            $rbFalse.Size = New-Object System.Drawing.Size(100, 24)  # Larger
-            $rbFalse.Text = "False"
-            $rbFalse.Checked = ($txtValue.Text -eq "False" -or $txtValue.Text -eq "$false")
-            $rbFalse.Add_Click({
-                $txtValue.Text = "$false"
-            })
-            $grpSpecialOptions.Controls.Add($rbFalse)
-            
-            $yPos += $optionSpacing
-            $hasSpecialOptions = $true
-        }
-        
-        # Adjust group box height based on content
-        if ($hasSpecialOptions) {
-            $grpSpecialOptions.Height = [int]$yPos + 45  # Add some padding at the bottom
-            $grpSpecialOptions.Visible = $true
-        } else {
-            $grpSpecialOptions.Visible = $false
-        }
-        
-        # Adjust form height
-        if ($grpSpecialOptions.Visible) {
-            $formHeight = $grpSpecialOptions.Location.Y + $grpSpecialOptions.Height + 120
-            # Cap the maximum height to prevent it from getting too large
-            if ($formHeight > 600) { $formHeight = 600 }
-        } else {
-            $formHeight = $grpSpecialOptions.Location.Y + 150
-        }
-        $form.ClientSize = New-Object System.Drawing.Size($form.ClientSize.Width, $formHeight)
-        
-        # Reposition OK and Cancel buttons
-        $buttonY = $form.ClientSize.Height - 40
-        $btnOK.Location = New-Object System.Drawing.Point(145, $buttonY)
-        $btnCancel.Location = New-Object System.Drawing.Point(245, $buttonY)
-    }
-    
-    # Initialize special options
-    UpdateSpecialOptions
-    
-    # Show the form
-    $result = $form.ShowDialog()
-    
-    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-        # Update parameter value and type
-        $selectedItem.SubItems[1].Text = $txtValue.Text
-        $selectedItem.SubItems[2].Text = $cboType.SelectedItem.ToString()
-        
-        # Update the script's parameters
-        $selectedIndex = $lvScripts.SelectedIndices[0]
-        $paramIndex = $lvParameters.Items.IndexOf($selectedItem)
-        $script:Scripts[$selectedIndex].Parameters[$paramIndex].Value = $txtValue.Text
-        $script:Scripts[$selectedIndex].Parameters[$paramIndex].Type = $cboType.SelectedItem.ToString()
-    }
-}
-
-function Validate-OutputPath {
-    param(
-        [string]$Path,
-        [switch]$CreateIfNotExists
-    )
-
-    try {
-        # Check if path is null or empty
-        if ([string]::IsNullOrWhiteSpace($Path)) {
-            return $false
-        }
-
-        # Resolve full path (handles relative paths)
-        $fullPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
-
-        # Check if path is rooted (valid path structure)
-        if (-not [System.IO.Path]::IsPathRooted($fullPath)) {
-            Write-Log "Invalid path: $Path" -Level "ERROR"
-            return $false
-        }
-
-        # If CreateIfNotExists is set, attempt to create directory
-        if ($CreateIfNotExists) {
-            if (-not (Test-Path $fullPath)) {
-                try {
-                    New-Item -Path $fullPath -ItemType Directory -Force | Out-Null
-                    Write-Log "Created directory: $fullPath" -Level "INFO"
-                } catch {
-                    Write-Log "Could not create directory: $fullPath. Error: $_" -Level "ERROR"
-                    return $false
-                }
-            }
-        } else {
-            # Just check if directory exists
-            if (-not (Test-Path $fullPath -PathType Container)) {
-                Write-Log "Path does not exist: $Path" -Level "WARNING"
-                return $false
-            }
-        }
-
-        return $true
     } catch {
-        Write-Log "Error validating path: $_" -Level "ERROR"
-        return $false
+        Write-Log "Error adding new parameter: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
 }
 
-
-function Remove-ScriptParameter {
+function Edit-SelectedParameter {
+    <#
+    .SYNOPSIS
+        Opens dialog to edit the selected parameter
+    #>
     try {
-        if ($lvScripts.SelectedItems.Count -eq 0 -or $lvParameters.SelectedItems.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a script and parameter to remove", "No Selection", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        if ($lvParameters.SelectedItems.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please select a parameter to edit.",
+                "No Selection",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
             return
         }
         
-        $selectedScriptIndex = $lvScripts.SelectedIndices[0]
-        $selectedOrder = [int]$lvScripts.Items[$selectedScriptIndex].Text
-        $selectedScript = $script:Scripts | Where-Object { $_.Order -eq $selectedOrder }
+        # Get selected parameter
+        $selectedItem = $lvParameters.SelectedItems[0]
+        $parameterInfo = [PSCustomObject]@{
+            Name = $selectedItem.SubItems[0].Text
+            Value = $selectedItem.SubItems[1].Text
+            Type = $selectedItem.SubItems[2].Text
+            Description = $selectedItem.SubItems[3].Text
+        }
         
-        $selectedParamIndex = $lvParameters.SelectedIndices[0]
-        $paramName = $lvParameters.SelectedItems[0].Text
+        # Set script scope variables for the edit form
+        $script:EditParameterInfo = $parameterInfo
+        $script:Config = $script:Config
         
-        $result = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to remove parameter '$($paramName)'?", "Confirm Removal", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
+        # Load and show edit parameter form
+        $editFormPath = Join-Path -Path $PSScriptRoot -ChildPath "EditParameterForm.ps1"
+        if (Test-Path -Path $editFormPath) {
+            . $editFormPath
+            
+            if ($EditParameterForm.ShowDialog($mainForm) -eq [System.Windows.Forms.DialogResult]::OK) {
+                # Get updated parameter from form
+                $updatedParameter = $EditParameterForm.Tag
+                
+                if ($updatedParameter) {
+                    # Update ListView item
+                    $selectedItem.SubItems[0].Text = $updatedParameter.Name
+                    $selectedItem.SubItems[1].Text = Get-ParameterDisplayValue -Parameter $updatedParameter
+                    $selectedItem.SubItems[2].Text = $updatedParameter.Type
+                    $selectedItem.SubItems[3].Text = $updatedParameter.Description
+                    
+                    Write-Log "Parameter updated: $($updatedParameter.Name)" -Level "INFO"
+                }
+            }
+            
+            $EditParameterForm.Dispose()
+        } else {
+            Write-Log "EditParameterForm.ps1 not found at: $($editFormPath)" -Level "ERROR"
+            [System.Windows.Forms.MessageBox]::Show(
+                "Edit parameter form not found. Please ensure EditParameterForm.ps1 exists in the application directory.",
+                "Form Not Found",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+        }
+        
+    } catch {
+        Write-Log "Error editing selected parameter: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Remove-SelectedParameter {
+    <#
+    .SYNOPSIS
+        Removes the selected parameter from the list
+    #>
+    try {
+        if ($lvParameters.SelectedItems.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please select a parameter to remove.",
+                "No Selection",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            return
+        }
+        
+        $selectedItem = $lvParameters.SelectedItems[0]
+        $parameterName = $selectedItem.SubItems[0].Text
+        
+        $result = [System.Windows.Forms.MessageBox]::Show(
+            "Are you sure you want to remove the parameter '$($parameterName)'?",
+            "Confirm Removal",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Question
+        )
         
         if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
-            # Remove from ListView
-            $lvParameters.Items.RemoveAt($selectedParamIndex)
-            
-            # Remove from script parameters
-            $selectedScript.Parameters = $selectedScript.Parameters | Where-Object { $_.Name -ne $paramName }
-            
-            Write-Log "Removed parameter '$($paramName)' from script: $($selectedScript.Name)"
+            $lvParameters.Items.Remove($selectedItem)
+            Write-Log "Parameter removed: $($parameterName)" -Level "INFO"
         }
+        
+    } catch {
+        Write-Log "Error removing selected parameter: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
-    catch {
-        Write-Log "Error removing parameter: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error removing parameter: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+}
+
+function Detect-CurrentScriptParameters {
+    <#
+    .SYNOPSIS
+        Detects parameters for the currently selected script
+    #>
+    try {
+        if ([string]::IsNullOrWhiteSpace($txtScriptPath.Text)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please specify a script path first.",
+                "No Script Path",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            return
+        }
+        
+        if (-not (Test-Path -Path $txtScriptPath.Text)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Script file does not exist: $($txtScriptPath.Text)",
+                "File Not Found",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            return
+        }
+        
+        # Create temporary script object
+        $tempScript = [PSCustomObject]@{
+            Name = $txtScriptName.Text
+            Path = $txtScriptPath.Text
+            Parameters = @()
+        }
+        
+        # Detect parameters
+        $detectedParams = Detect-ScriptParameters -Script $tempScript
+        
+        if ($detectedParams.Count -gt 0) {
+            # Ask user if they want to replace existing parameters
+            $existingParams = Get-ParametersFromListView
+            if ($existingParams.Count -gt 0) {
+                $result = [System.Windows.Forms.MessageBox]::Show(
+                    "This will replace all existing parameters with detected ones. Continue?",
+                    "Replace Parameters",
+                    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                    [System.Windows.Forms.MessageBoxIcon]::Question
+                )
+                
+                if ($result -eq [System.Windows.Forms.DialogResult]::No) {
+                    return
+                }
+            }
+            
+            # Clear existing parameters and add detected ones
+            $lvParameters.Items.Clear()
+            Load-ParametersListView -Parameters $detectedParams
+            
+            Write-Log "Detected $($detectedParams.Count) parameters for script: $($txtScriptName.Text)" -Level "INFO"
+            
+            [System.Windows.Forms.MessageBox]::Show(
+                "Successfully detected $($detectedParams.Count) parameter(s)!",
+                "Parameters Detected",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+        } else {
+            [System.Windows.Forms.MessageBox]::Show(
+                "No parameters detected in the script.",
+                "No Parameters Found",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+        }
+        
+    } catch {
+        Write-Log "Error detecting current script parameters: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Detect-ScriptParameters {
+    <#
+    .SYNOPSIS
+        Detects parameters in a PowerShell script using AST parsing
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$Script
+    )
+    
+    try {
+        Write-Log "Detecting parameters for script: $($Script.Path)" -Level "DEBUG"
+        
+        if (-not (Test-Path -Path $Script.Path)) {
+            Write-Log "Script file not found: $($Script.Path)" -Level "WARNING"
+            return @()
+        }
+        
+        # Read script content
+        $scriptContent = Get-Content -Path $Script.Path -Raw -Encoding UTF8
+        
+        # Parse script using AST
+        $tokens = $null
+        $parseErrors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput($scriptContent, [ref]$tokens, [ref]$parseErrors)
+        
+        if ($parseErrors.Count -gt 0) {
+            Write-Log "Parse errors in script $($Script.Path): $($parseErrors -join '; ')" -Level "WARNING"
+        }
+        
+        # Find param blocks
+        $paramBlocks = $ast.FindAll({
+            param($node)
+            $node -is [System.Management.Automation.Language.ParamBlockAst]
+        }, $true)
+        
+        $detectedParameters = @()
+        
+        foreach ($paramBlock in $paramBlocks) {
+            foreach ($parameter in $paramBlock.Parameters) {
+                $paramName = $parameter.Name.VariablePath.UserPath
+                $paramType = "String" # Default type
+                $defaultValue = ""
+                $description = ""
+                
+                # Get parameter type
+                if ($parameter.StaticType) {
+                    $paramType = $parameter.StaticType.Name
+                }
+                
+                # Get default value
+                if ($parameter.DefaultValue) {
+                    $defaultValue = $parameter.DefaultValue.ToString()
+                }
+                
+                # Look for help comments
+                $helpComment = $parameter.Attributes | Where-Object { $_ -is [System.Management.Automation.Language.AttributeAst] -and $_.TypeName.Name -eq "Parameter" }
+                if ($helpComment) {
+                    # Extract help text if available
+                    $description = "Parameter with attributes"
+                }
+                
+                $detectedParam = [PSCustomObject]@{
+                    Name = $paramName
+                    Value = $defaultValue
+                    Type = $paramType
+                    Description = $description
+                }
+                
+                $detectedParameters += $detectedParam
+                Write-Log "Detected parameter: $($paramName) ($($paramType))" -Level "DEBUG"
+            }
+        }
+        
+        Write-Log "Detected $($detectedParameters.Count) parameters in script: $($Script.Path)" -Level "INFO"
+        return $detectedParameters
+        
+    } catch {
+        Write-Log "Error detecting script parameters: $($_.Exception.Message)" -Level "ERROR"
+        return @()
+    }
+}
+
+function Load-ParametersListView {
+    <#
+    .SYNOPSIS
+        Loads parameters into the ListView
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$Parameters
+    )
+    
+    try {
+        Write-Log "Loading $($Parameters.Count) parameters into ListView..." -Level "DEBUG"
+        
+        # Clear existing items
+        $lvParameters.Items.Clear()
+        
+        # Add parameters to ListView
+        foreach ($param in $Parameters) {
+            Add-ParameterToListView -Parameter $param
+        }
+        
+        Write-Log "Parameters loaded into ListView successfully" -Level "DEBUG"
+        
+    } catch {
+        Write-Log "Error loading parameters into ListView: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Add-ParameterToListView {
+    <#
+    .SYNOPSIS
+        Adds a single parameter to the ListView
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$Parameter
+    )
+    
+    try {
+        $listViewItem = New-Object System.Windows.Forms.ListViewItem($Parameter.Name)
+        $listViewItem.SubItems.Add((Get-ParameterDisplayValue -Parameter $Parameter)) | Out-Null
+        $listViewItem.SubItems.Add($Parameter.Type) | Out-Null
+        $listViewItem.SubItems.Add($Parameter.Description) | Out-Null
+        
+        $lvParameters.Items.Add($listViewItem) | Out-Null
+        
+    } catch {
+        Write-Log "Error adding parameter to ListView: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Get-ParametersFromListView {
+    <#
+    .SYNOPSIS
+        Gets all parameters from the ListView as objects
+    #>
+    try {
+        $parameters = @()
+        
+        foreach ($item in $lvParameters.Items) {
+            $parameter = [PSCustomObject]@{
+                Name = $item.SubItems[0].Text
+                Value = $item.SubItems[1].Text
+                Type = $item.SubItems[2].Text
+                Description = $item.SubItems[3].Text
+            }
+            $parameters += $parameter
+        }
+        
+        return $parameters
+        
+    } catch {
+        Write-Log "Error getting parameters from ListView: $($_.Exception.Message)" -Level "ERROR"
+        return @()
+    }
+}
+
+function Get-ParameterDisplayValue {
+    <#
+    .SYNOPSIS
+        Gets the display value for a parameter based on its type and content
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$Parameter
+    )
+    
+    try {
+        $value = $Parameter.Value
+        
+        # Handle special values
+        switch ($value) {
+            "SourcevCenter" { return "Source vCenter Server" }
+            "TargetvCenter" { return "Target vCenter Server" }
+            "SourceCredential" { return "Source vCenter Credentials" }
+            "TargetCredential" { return "Target vCenter Credentials" }
+            default {
+                # Handle by type
+                switch ($Parameter.Type) {
+                    "PSCredential" {
+                        if ([string]::IsNullOrWhiteSpace($value)) {
+                            return "[No Credential Set]"
+                        } else {
+                            return "[Credential: $($value)]"
+                        }
+                    }
+                    "SecureString" {
+                        if ([string]::IsNullOrWhiteSpace($value)) {
+                            return "[No Secure String Set]"
+                        } else {
+                            return "[Secure String]"
+                        }
+                    }
+                    default {
+                        return $value
+                    }
+                }
+            }
+        }
+    } catch {
+        Write-Log "Error getting parameter display value: $($_.Exception.Message)" -Level "ERROR"
+        return $Parameter.Value
     }
 }
 
 #endregion
 
-#region Script Execution Functions
+#region Execution Management
 
-function Run-AllScripts {
+$btnRunAll_Click = {
     try {
-        if ($script:Scripts.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("No scripts to run", "No Scripts", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        Write-Log "Run All button clicked" -Level "INFO"
+        
+        # Validate that scripts are available
+        $enabledScripts = $script:Scripts | Where-Object { $_.Enabled -eq $true }
+        if ($enabledScripts.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "No enabled scripts available for execution.",
+                "No Scripts",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
             return
         }
         
-        # Confirm execution
-        $result = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to run all enabled scripts?", "Confirm Execution", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
-        
-        if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
-            # Get enabled scripts
-            $enabledScripts = $script:Scripts | Where-Object { $_.Enabled -eq $true } | Sort-Object -Property Order
-            
-            if ($enabledScripts.Count -eq 0) {
-                [System.Windows.Forms.MessageBox]::Show("No enabled scripts to run", "No Enabled Scripts", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-                return
-            }
-            
-            # Update UI
-            Update-UIState -State "Running"
-            $txtExecutionOutput.Clear()
-            $progressOverall.Maximum = $enabledScripts.Count
-            $progressOverall.Value = 0
-            $progressCurrentScript.Value = 0
-            
-            Write-Log "Starting execution of $($enabledScripts.Count) scripts" -Level "INFO"
-            
-            # Start execution
-            Start-ScriptExecution -Scripts $enabledScripts
-        }
-    }
-    catch {
-        Write-Log "Error running scripts: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error running scripts: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        Update-UIState -State "Error"
-    }
-}
-
-function Run-SelectedScript {
-    try {
-        if ($lvScripts.SelectedItems.Count -eq 0) {
-            [System.Windows.Forms.MessageBox]::Show("Please select a script to run", "No Script Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return
-        }
-        
-        $selectedIndex = $lvScripts.SelectedIndices[0]
-        $selectedOrder = [int]$lvScripts.Items[$selectedIndex].Text
-        $script = $script:Scripts | Where-Object { $_.Order -eq $selectedOrder }
-        
-        if (-not $script.Enabled) {
-            $result = [System.Windows.Forms.MessageBox]::Show("The selected script is disabled. Do you want to run it anyway?", "Script Disabled", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
+        # Confirm execution unless skip confirmation is checked
+        if (-not $chkSkipConfirmation.Checked) {
+            $result = [System.Windows.Forms.MessageBox]::Show(
+                "Are you sure you want to run all $($enabledScripts.Count) enabled script(s)?",
+                "Confirm Execution",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question
+            )
             
             if ($result -eq [System.Windows.Forms.DialogResult]::No) {
                 return
             }
         }
         
-        # Update UI
-        Update-UIState -State "Running"
-        $txtExecutionOutput.Clear()
-        $progressOverall.Maximum = 1
-        $progressOverall.Value = 0
-        $progressCurrentScript.Value = 0
-        
-        Write-Log "Starting execution of script: $($script.Name)" -Level "INFO"
-        
         # Start execution
-        Start-ScriptExecution -Scripts @($script)
+        Start-ScriptExecution
+        
+    } catch {
+        Write-Log "Error in Run All button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error starting script execution: $($_.Exception.Message)",
+            "Execution Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
     }
-    catch {
-        Write-Log "Error running selected script: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error running selected script: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        Update-UIState -State "Error"
+}
+
+$btnRunSelected_Click = {
+    try {
+        Write-Log "Run Selected button clicked" -Level "INFO"
+        
+        # Validate selection
+        if ($lvScripts.SelectedItems.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please select a script to run.",
+                "No Selection",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            return
+        }
+        
+        # Get selected script
+        $selectedIndex = $lvScripts.SelectedItems[0].Index
+        $selectedScript = $script:Scripts[$selectedIndex]
+        
+        # Check if script is enabled
+        if (-not $selectedScript.Enabled) {
+            $result = [System.Windows.Forms.MessageBox]::Show(
+                "The selected script is disabled. Do you want to run it anyway?",
+                "Script Disabled",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question
+            )
+            
+            if ($result -eq [System.Windows.Forms.DialogResult]::No) {
+                return
+            }
+        }
+        
+        # Confirm execution unless skip confirmation is checked
+        if (-not $chkSkipConfirmation.Checked) {
+            $result = [System.Windows.Forms.MessageBox]::Show(
+                "Are you sure you want to run the script '$($selectedScript.Name)'?",
+                "Confirm Execution",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question
+            )
+            
+            if ($result -eq [System.Windows.Forms.DialogResult]::No) {
+                return
+            }
+        }
+        
+        # Start execution with specific script
+        Start-ScriptExecution -SpecificScript $selectedScript
+        
+    } catch {
+        Write-Log "Error in Run Selected button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error starting script execution: $($_.Exception.Message)",
+            "Execution Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnStopExecution_Click = {
+    try {
+        Write-Log "Stop Execution button clicked" -Level "INFO"
+        Stop-ScriptExecution
+    } catch {
+        Write-Log "Error in Stop Execution button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error stopping script execution: $($_.Exception.Message)",
+            "Stop Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
     }
 }
 
 function Start-ScriptExecution {
-    param (
-        [array]$Scripts
+    <#
+    .SYNOPSIS
+        Starts script execution in background with enhanced error handling and UI updates
+    #>
+    param(
+        [Parameter(Mandatory = $false)]
+        [PSCustomObject]$SpecificScript = $null
     )
     
-    # Create a background runspace
-    $script:runspace = [runspacefactory]::CreateRunspace()
-    $script:runspace.ApartmentState = "STA"
-    $script:runspace.ThreadOptions = "ReuseThread"
-    $script:runspace.Open()
-    
-    # Create a synchronization hashtable to handle UI updates
-    $syncHash = [hashtable]::Synchronized(@{})
-    # Remove $host reference - not needed and can cause issues
-    $syncHash.ProgressOverall = $progressOverall
-    $syncHash.ProgressCurrentScript = $progressCurrentScript
-    $syncHash.TxtExecutionOutput = $txtExecutionOutput
-    $syncHash.StatusStripLabel = $statusStripLabel
-    $syncHash.Form = $form
-    $syncHash.BtnRunAll = $btnRunAll
-    $syncHash.BtnRunSelected = $btnRunSelected
-    $syncHash.BtnStopExecution = $btnStopExecution
-    
-    # Add variables to runspace
-    $script:runspace.SessionStateProxy.SetVariable("syncHash", $syncHash)
-    $script:runspace.SessionStateProxy.SetVariable("scripts", $Scripts)
-    $script:runspace.SessionStateProxy.SetVariable("vCenterConfig", $script:vCenterConfig)
-    $script:runspace.SessionStateProxy.SetVariable("executionSettings", $script:executionSettings)
-    $script:runspace.SessionStateProxy.SetVariable("logPath", $script:config.LogPath)
-    $script:runspace.SessionStateProxy.SetVariable("reportsPath", $script:config.ReportsPath)
-    
-    # Create PowerShell instance
-    $script:powershell = [powershell]::Create()
-    $script:powershell.Runspace = $script:runspace
-    
-    # Add script to execute
-    $script:powershell.AddScript({
-        # Function to safely update UI from background thread
-        function Update-UI {
-            param(
-                [Parameter(Mandatory=$true)]
-                [ScriptBlock]$Code
-            )
-            
-            try {
-                # Check if we need to use Invoke or can run directly
-                if ($syncHash.Form.InvokeRequired) {
-                    $syncHash.Form.Invoke([Action]{
-                        Invoke-Command -ScriptBlock $Code
-                    })
-                } else {
-                    Invoke-Command -ScriptBlock $Code
-                }
-            }
-            catch {
-                # If UI update fails, at least write to the log
-                $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-                $errorMsg = "[$timestamp] [ERROR] UI update failed: $($_.Exception.Message)"
-                Add-Content -Path $logPath -Value $errorMsg
-            }
-        }
+    try {
+        Write-Log "Starting script execution..." -Level "INFO"
         
-        # Function to write to log file and update UI
-        function Write-ExecutionLog {
-            param (
-                [string]$Message,
-                [string]$Level = "INFO"
-            )
-            
-            $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-            $logEntry = "[$timestamp] [$Level] $Message"
-            
-            # Write to log file
-            try {
-                Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
-            }
-            catch {
-                # If log file write fails, continue execution
-                $errorMsg = "Failed to write to log file: $($_.Exception.Message)"
-                # Don't try to log this error to avoid recursion
-            }
-            
-            # Update UI safely
-            Update-UI {
-                if ($null -ne $syncHash.TxtExecutionOutput) {
-                    $syncHash.TxtExecutionOutput.AppendText("$logEntry`r`n")
-                    $syncHash.TxtExecutionOutput.ScrollToCaret()
-                }
-                
-                if ($null -ne $syncHash.StatusStripLabel) {
-                    $syncHash.StatusStripLabel.Text = $Message
-                }
-            }
-        }
-        
-        # Set global variable to track if script should stop
-        $global:StopScript = $false
-        
-        # Function to create credentials
-        function Get-VCenterCredential {
-            param (
-                [string]$Type
-            )
-            
-            if ($vCenterConfig.UseCurrentCredentials) {
-                return $null  # Will use current Windows credentials
-            }
-            
-            if ($Type -eq "Source") {
-                $username = $vCenterConfig.SourceUsername
-                $password = $vCenterConfig.SourcePassword
-            } else {
-                $username = $vCenterConfig.TargetUsername
-                $password = $vCenterConfig.TargetPassword
-            }
-            
-            if ([string]::IsNullOrEmpty($username) -or [string]::IsNullOrEmpty($password)) {
-                return $null
-            }
-            
-            $secPassword = ConvertTo-SecureString $password -AsPlainText -Force
-            return New-Object System.Management.Automation.PSCredential ($username, $secPassword)
-        }
-        
-        # Function to write logs in a format the scripts can use
-        function Write-Log {
-            param (
-                [string]$Message,
-                [string]$Severity = "Info"
-            )
-            
-            $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-            $logEntry = "[$timestamp] [$Severity] $Message"
-            
-            try {
-                Add-Content -Path $logPath -Value $logEntry -ErrorAction Stop
-            }
-            catch {
-                # If log file write fails, continue execution
-            }
-            
-            # Also write to the execution log
-            Write-ExecutionLog $Message -Level $Severity
-        }
-        
-        # Connect to vCenter servers
-        $sourceServer = $null
-        $targetServer = $null
-        
-        try {
-            Write-ExecutionLog "Connecting to source vCenter: $($vCenterConfig.SourcevCenter)"
-            
-            # Check if PowerCLI is available
-            if (-not (Get-Module -Name VMware.PowerCLI -ListAvailable)) {
-                Write-ExecutionLog "VMware PowerCLI module is not installed. Cannot connect to vCenter." -Level "ERROR"
-                
-                # Update UI
-                Update-UI {
-                    $syncHash.BtnRunAll.Enabled = $true
-                    $syncHash.BtnRunSelected.Enabled = $true
-                    $syncHash.BtnStopExecution.Enabled = $false
-                }
-                
-                return
-            }
-            
-            # Import the module
-            Write-ExecutionLog "Importing VMware.PowerCLI module..."
-            #Import-Module VMware.PowerCLI -ErrorAction Stop
-            
-            # Set PowerCLI configuration to ignore certificate warnings
-            Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-            
-            if ($vCenterConfig.UseCurrentCredentials) {
-                $sourceServer = Connect-VIServer -Server $vCenterConfig.SourcevCenter -ErrorAction Stop
-            } else {
-                $sourceCredential = Get-VCenterCredential -Type "Source"
-                if ($sourceCredential) {
-                    $sourceServer = Connect-VIServer -Server $vCenterConfig.SourcevCenter -Credential $sourceCredential -ErrorAction Stop
-                } else {
-                    $sourceServer = Connect-VIServer -Server $vCenterConfig.SourcevCenter -ErrorAction Stop
-                }
-            }
-            
-            Write-ExecutionLog "Connecting to target vCenter: $($vCenterConfig.TargetvCenter)"
-            
-            if ($vCenterConfig.UseCurrentCredentials) {
-                $targetServer = Connect-VIServer -Server $vCenterConfig.TargetvCenter -ErrorAction Stop
-            } else {
-                $targetCredential = Get-VCenterCredential -Type "Target"
-                if ($targetCredential) {
-                    $targetServer = Connect-VIServer -Server $vCenterConfig.TargetvCenter -Credential $targetCredential -ErrorAction Stop
-                } else {
-                    $targetServer = Connect-VIServer -Server $vCenterConfig.TargetvCenter -ErrorAction Stop
-                }
-            }
-            
-            Write-ExecutionLog "Successfully connected to both vCenter servers"
-        }
-        catch {
-            Write-ExecutionLog "Failed to connect to vCenter servers: $($_)" -Level "ERROR"
-            
-            # Get detailed error information
-            $errorMessage = $_.Exception.Message
-            $errorType = $_.Exception.GetType().FullName
-            $stackTrace = $_.ScriptStackTrace
-            
-            Write-ExecutionLog "Error Type: $errorType" -Level "ERROR"
-            Write-ExecutionLog "Stack Trace: $stackTrace" -Level "ERROR"
-            
-            # Update UI
-            Update-UI {
-                $syncHash.BtnRunAll.Enabled = $true
-                $syncHash.BtnRunSelected.Enabled = $true
-                $syncHash.BtnStopExecution.Enabled = $false
-            }
-            
+        # Validate form state
+        $validationErrors = Test-FormValidation
+        if ($validationErrors.Count -gt 0) {
+            $errorMessage = "Validation errors:`n" + ($validationErrors -join "`n")
+            [System.Windows.Forms.MessageBox]::Show($errorMessage, "Validation Error", 
+                [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
             return
         }
         
-        # Execute scripts
-        $totalScripts = $scripts.Count
-        $currentScript = 0
-        $sourceCredential = Get-VCenterCredential -Type "Source"
-        $targetCredential = Get-VCenterCredential -Type "Target"
+        # Update execution configuration
+        Update-ExecutionConfiguration
         
-        foreach ($script in $scripts) {
-            # Check if execution should stop
-            if ($global:StopScript) {
-                Write-ExecutionLog "Execution stopped by user" -Level "WARNING"
-                break
+        # Update UI state to running
+        Update-UIState -State "Running"
+        
+        # Reset stop flag
+        $script:StopExecution = $false
+        
+        # Create PowerShell runspace for background execution
+        $script:ExecutionRunspace = [runspacefactory]::CreateRunspace()
+        $script:ExecutionRunspace.Open()
+        
+        # Add required variables to runspace
+        $script:ExecutionRunspace.SessionStateProxy.SetVariable("Config", $script:Config)
+        $script:ExecutionRunspace.SessionStateProxy.SetVariable("Scripts", $script:Scripts)
+        $script:ExecutionRunspace.SessionStateProxy.SetVariable("SpecificScript", $SpecificScript)
+        $script:ExecutionRunspace.SessionStateProxy.SetVariable("MainForm", $mainForm)
+        $script:ExecutionRunspace.SessionStateProxy.SetVariable("LogPath", $script:LogPath)
+        
+        # Create PowerShell instance
+        $script:ExecutionPowerShell = [powershell]::Create()
+        $script:ExecutionPowerShell.Runspace = $script:ExecutionRunspace
+        
+        # Add the execution script block
+        $executionScriptBlock = {
+            param($Config, $Scripts, $SpecificScript, $MainForm, $LogPath)
+            
+            # Import required modules and functions
+            if (Get-Module VMware.PowerCLI -ListAvailable) {
+                Import-Module VMware.PowerCLI -Force
             }
             
-            $currentScript++
-            
-            # Update progress
-            Update-UI {
-                $syncHash.ProgressOverall.Value = [Math]::Min(100, [Math]::Round(($currentScript / $totalScripts) * 100))
-                $syncHash.ProgressCurrentScript.Value = 0
+            # Define thread-safe UI update function
+            function Update-UIThreadSafe {
+                param(
+                    [string]$ControlName,
+                    [string]$Property,
+                    [object]$Value
+                )
+                
+                try {
+                    $MainForm.Invoke([System.Action]{
+                        $control = $MainForm.Controls.Find($ControlName, $true)[0]
+                        if ($control) {
+                            $control.$Property = $Value
+                        }
+                    })
+                } catch {
+                    # Ignore invoke errors if form is closing
+                }
             }
             
-            Write-ExecutionLog "Executing script $($currentScript) of $($totalScripts): $($script.Name)"
+            # Define thread-safe logging function
+            function Write-ExecutionLog {
+                param([string]$Message, [string]$Level = "INFO")
+                
+                try {
+                    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+                    $logMessage = "[$($timestamp)] [$($Level)] $($Message)"
+                    
+                    # Write to file
+                    Add-Content -Path $LogPath -Value $logMessage -Encoding UTF8
+                    
+                    # Update UI log
+                    $MainForm.Invoke([System.Action]{
+                        $txtExecutionOutput = $MainForm.Controls.Find("txtExecutionOutput", $true)[0]
+                        if ($txtExecutionOutput) {
+                            $txtExecutionOutput.AppendText("$($logMessage)`r`n")
+                            $txtExecutionOutput.ScrollToCaret()
+                        }
+                    })
+                } catch {
+                    # Ignore logging errors during shutdown
+                }
+            }
+            
+            # Define credential helper function
+            function Get-VCenterCredential {
+                param(
+                    [string]$ServerType,
+                    [hashtable]$Config
+                )
+                
+                if ($Config.UseCurrentCredentials) {
+                    return [System.Management.Automation.PSCredential]::Empty
+                } else {
+                    $username = if ($ServerType -eq "Source") { $Config.SourceUsername } else { $Config.TargetUsername }
+                    $password = if ($ServerType -eq "Source") { $Config.SourcePassword } else { $Config.TargetPassword }
+                    
+                    if ($password -is [System.Security.SecureString]) {
+                        return New-Object System.Management.Automation.PSCredential($username, $password)
+                    } else {
+                        $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
+                        return New-Object System.Management.Automation.PSCredential($username, $securePassword)
+                    }
+                }
+            }
             
             try {
-                # Build parameter hashtable
-                $parameters = @{}
+                Write-ExecutionLog "Background execution started"
                 
-                foreach ($param in $script.Parameters) {
-                    $value = $param.Value
-                    
-                    # Handle special parameter values
-                    if ($param.Type -eq "PSCredential") {
-                        if ($value -eq "SourceCredential") {
-                            $value = $sourceCredential
-                        } elseif ($value -eq "TargetCredential") {
-                            $value = $targetCredential
-                        }
-                    } elseif ($param.Type -eq "Int32" -or $param.Type -eq "Double") {
-                        $value = [convert]::ChangeType($value, [type]$param.Type)
-                    } elseif ($param.Type -eq "Boolean") {
-                        $value = [System.Convert]::ToBoolean($value)
-                    } elseif ($param.Type -eq "DateTime") {
-                        $value = [datetime]$value
-                    } elseif ($param.Name -eq "vCenter" -and $value -eq "SourcevCenter") {
-                        $value = $vCenterConfig.SourcevCenter
-                    } elseif ($param.Name -eq "vCenter" -and $value -eq "TargetvCenter") {
-                        $value = $vCenterConfig.TargetvCenter
-                    } elseif ($param.Name -eq "SourcevCenter" -or ($param.Name -eq "vCenter" -and $value -eq "SourcevCenter")) {
-                        $value = $vCenterConfig.SourcevCenter
-                    } elseif ($param.Name -eq "TargetvCenter") {
-                        $value = $vCenterConfig.TargetvCenter
-                    } elseif ($param.Name -eq "vCenterName" -and $value -eq "SourcevCenter") {
-                        $value = "Source vCenter"
-                    } elseif ($param.Name -eq "vCenterName" -and $value -eq "TargetvCenter") {
-                        $value = "Target vCenter"
-                    } elseif ($param.Name -eq "vCenterConnection" -and $value -eq "SourceConnection") {
-                        $value = $sourceServer
-                    } elseif ($param.Name -eq "vCenterConnection" -and $value -eq "TargetConnection") {
-                        $value = $targetServer
-                    } elseif ($param.Name -eq "LogOutputLocation") {
-                        $value = $logPath
-                    } elseif ($param.Name -eq "ReportOutputLocation") {
-                        # Ensure the reports directory exists
-                        if (-not (Test-Path $reportsPath)) {
-                            New-Item -Path $reportsPath -ItemType Directory -Force | Out-Null
-                        }
-                        $value = $reportsPath
-                    }
-                    
-                    $parameters[$param.Name] = $value
-                }
-                
-                # Execute the script
-                Write-ExecutionLog "Loading script content from: $($script.Path)"
-                $scriptContent = Get-Content -Path $script.Path -Raw -ErrorAction Stop
-                $scriptBlock = [scriptblock]::Create($scriptContent)
-                
-                Write-ExecutionLog "Starting script job with parameters: $($parameters.Keys -join ', ')"
-                $job = Start-Job -ScriptBlock $scriptBlock -ArgumentList $parameters
-                
-                # Monitor job progress
-                $timeout = $executionSettings.Timeout
-                $elapsed = 0
-                $interval = 1  # Check every second
-                
-                while ($job.State -eq "Running" -and $elapsed -lt $timeout -and -not $global:StopScript) {
-                    Start-Sleep -Seconds $interval
-                    $elapsed += $interval
-                    
-                    # Update progress
-                    $progressPercent = [math]::Min(100, [math]::Round(($elapsed / $timeout) * 100))
-                    Update-UI {
-                        $syncHash.ProgressCurrentScript.Value = $progressPercent
-                    }
-                    
-                    # Get job output
-                    $output = Receive-Job -Job $job
-                    if ($output) {
-                        foreach ($line in $output) {
-                            Write-ExecutionLog "  $($line)"
-                        }
-                    }
-                }
-                
-                # Check job status
-                if ($job.State -eq "Running") {
-                    Stop-Job -Job $job
-                    Write-ExecutionLog "Script execution timed out after $($timeout) seconds" -Level "WARNING"
-                    
-                    if ($executionSettings.StopOnError) {
-                        Write-ExecutionLog "Stopping execution due to timeout" -Level "ERROR"
-                        break
-                    }
-                } elseif ($global:StopScript) {
-                    Stop-Job -Job $job
-                    Write-ExecutionLog "Script execution stopped by user" -Level "WARNING"
-                    break
+                # Get scripts to execute
+                $scriptsToRun = if ($SpecificScript) {
+                    @($SpecificScript)
                 } else {
-                    # Get final output
-                    $output = Receive-Job -Job $job
-                    if ($output) {
-                        foreach ($line in $output) {
-                            Write-ExecutionLog "  $($line)"
-                        }
+                    $Scripts | Where-Object { $_.Enabled -eq $true }
+                }
+                
+                if ($scriptsToRun.Count -eq 0) {
+                    Write-ExecutionLog "No enabled scripts to execute" "WARNING"
+                    return
+                }
+                
+                Write-ExecutionLog "Found $($scriptsToRun.Count) script(s) to execute"
+                
+                # Connect to vCenter servers
+                $sourceConnection = $null
+                $targetConnection = $null
+                
+                try {
+                    # Source vCenter connection
+                    Write-ExecutionLog "Connecting to source vCenter: $($Config.SourceServer)"
+                    Update-UIThreadSafe -ControlName "lblCurrentProgress" -Property "Text" -Value "Connecting to source vCenter..."
+                    
+                    $sourceCredential = Get-VCenterCredential -ServerType "Source" -Config $Config
+                    
+                    # Set PowerCLI configuration
+                    Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false | Out-Null
+                    Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false -Confirm:$false | Out-Null
+                    
+                    $sourceConnection = if ($sourceCredential -eq [System.Management.Automation.PSCredential]::Empty) {
+                        Connect-VIServer -Server $Config.SourceServer -Force
+                    } else {
+                        Connect-VIServer -Server $Config.SourceServer -Credential $sourceCredential -Force
                     }
                     
-                    if ($job.State -eq "Failed") {
-                        # Get detailed error information
-                        $errorDetails = $null
+                    if ($sourceConnection) {
+                        Write-ExecutionLog "Successfully connected to source vCenter"
+                    } else {
+                        throw "Failed to connect to source vCenter"
+                    }
+                    
+                    # Target vCenter connection
+                    Write-ExecutionLog "Connecting to target vCenter: $($Config.TargetServer)"
+                    Update-UIThreadSafe -ControlName "lblCurrentProgress" -Property "Text" -Value "Connecting to target vCenter..."
+                    
+                    $targetCredential = Get-VCenterCredential -ServerType "Target" -Config $Config
+                    $targetConnection = if ($targetCredential -eq [System.Management.Automation.PSCredential]::Empty) {
+                        Connect-VIServer -Server $Config.TargetServer -Force
+                    } else {
+                        Connect-VIServer -Server $Config.TargetServer -Credential $targetCredential -Force
+                    }
+                    
+                    if ($targetConnection) {
+                        Write-ExecutionLog "Successfully connected to target vCenter"
+                    } else {
+                        throw "Failed to connect to target vCenter"
+                    }
+                    
+                    # Execute scripts
+                    $totalScripts = $scriptsToRun.Count
+                    $currentScriptIndex = 0
+                    
+                    foreach ($currentScript in $scriptsToRun) {
+                        $currentScriptIndex++
                         
-                        # Try to get error details from the job
-                        if ($job.ChildJobs[0].Error) {
-                            $errorDetails = $job.ChildJobs[0].Error | Out-String
-                        }
-                        
-                        # If we have error records, get more details
-                        if ($job.ChildJobs[0].JobStateInfo.Reason) {
-                            $errorDetails += "`nReason: " + ($job.ChildJobs[0].JobStateInfo.Reason | Out-String)
-                        }
-                        
-                        # Get error record details if available
-                        try {
-                            $errorRecord = $job.ChildJobs[0].Error[0]
-                            if ($errorRecord) {
-                                $errorDetails += "`nException Type: $($errorRecord.Exception.GetType().FullName)"
-                                $errorDetails += "`nException Message: $($errorRecord.Exception.Message)"
-                                
-                                if ($errorRecord.InvocationInfo) {
-                                    $errorDetails += "`nPosition: $($errorRecord.InvocationInfo.PositionMessage)"
-                                    $errorDetails += "`nLine Number: $($errorRecord.InvocationInfo.ScriptLineNumber)"
-                                    $errorDetails += "`nOffset: $($errorRecord.InvocationInfo.OffsetInLine)"
-                                    $errorDetails += "`nLine: $($errorRecord.InvocationInfo.Line)"
-                                    $errorDetails += "`nScript Name: $($errorRecord.InvocationInfo.ScriptName)"
-                                }
-                                
-                                # Get the inner exception details if available
-                                if ($errorRecord.Exception.InnerException) {
-                                    $errorDetails += "`nInner Exception: $($errorRecord.Exception.InnerException.Message)"
-                                }
-                                
-                                # Get the stack trace
-                                if ($errorRecord.Exception.StackTrace) {
-                                    $errorDetails += "`nStack Trace: $($errorRecord.Exception.StackTrace)"
-                                }
-                            }
-                        }
-                        catch {
-                            $errorDetails += "`nError extracting detailed error information: $($_)"
-                        }
-                        
-                        # Log the detailed error
-                        Write-ExecutionLog "Script execution failed with the following error:" -Level "ERROR"
-                        foreach ($line in ($errorDetails -split "`n")) {
-                            if (-not [string]::IsNullOrWhiteSpace($line)) {
-                                Write-ExecutionLog "  $line" -Level "ERROR"
-                            }
-                        }
-                        
-                        if ($executionSettings.StopOnError) {
-                            Write-ExecutionLog "Stopping execution due to error" -Level "ERROR"
+                        # Check for stop signal
+                        if ($script:StopExecution) {
+                            Write-ExecutionLog "Execution stopped by user"
                             break
                         }
-                    } else {
-                        Write-ExecutionLog "Script execution completed successfully"
                         
-                        # Set progress to 100%
-                        Update-UI {
-                            $syncHash.ProgressCurrentScript.Value = 100
+                        Write-ExecutionLog "Executing script $($currentScriptIndex) of $($totalScripts): $($currentScript.Name)"
+                        Update-UIThreadSafe -ControlName "lblCurrentProgress" -Property "Text" -Value "Executing: $($currentScript.Name)"
+                        Update-UIThreadSafe -ControlName "progressOverall" -Property "Value" -Value ([int](($currentScriptIndex - 1) / $totalScripts * 100))
+                        
+                        try {
+                            # Prepare script parameters
+                            $scriptParams = @{}
+                            
+                            foreach ($param in $currentScript.Parameters) {
+                                $paramValue = $param.Value
+                                
+                                # Handle special parameter values
+                                switch ($paramValue) {
+                                    "SourcevCenter" { $paramValue = $Config.SourceServer }
+                                    "TargetvCenter" { $paramValue = $Config.TargetServer }
+                                    "SourceCredential" { $paramValue = $sourceCredential }
+                                    "TargetCredential" { $paramValue = $targetCredential }
+                                }
+                                
+                                # Type conversion
+                                switch ($param.Type) {
+                                    "Int32" { $paramValue = [int]$paramValue }
+                                    "Boolean" { $paramValue = [bool]$paramValue }
+                                    "DateTime" { $paramValue = [datetime]$paramValue }
+                                    "Double" { $paramValue = [double]$paramValue }
+                                }
+                                
+                                $scriptParams[$param.Name] = $paramValue
+                            }
+                            
+                            # Execute script as job
+                            Write-ExecutionLog "Starting script job: $($currentScript.Path)"
+                            Update-UIThreadSafe -ControlName "progressCurrentScript" -Property "Value" -Value 0
+                            
+                            $job = Start-Job -ScriptBlock {
+                                param($ScriptPath, $Parameters)
+                                & $ScriptPath @Parameters
+                            } -ArgumentList $currentScript.Path, $scriptParams
+                            
+                            # Monitor job progress
+                            $timeout = [datetime]::Now.AddSeconds($Config.ExecutionTimeout)
+                            
+                            while ($job.State -eq "Running" -and [datetime]::Now -lt $timeout) {
+                                if ($script:StopExecution) {
+                                    Stop-Job -Job $job
+                                    Remove-Job -Job $job
+                                    Write-ExecutionLog "Script execution stopped by user"
+                                    break
+                                }
+                                
+                                Start-Sleep -Milliseconds 500
+                                $progressValue = if ($job.PSBeginTime) { 50 } else { 25 }
+                                Update-UIThreadSafe -ControlName "progressCurrentScript" -Property "Value" -Value $progressValue
+                            }
+                            
+                            # Handle job completion
+                            if ($job.State -eq "Completed") {
+                                $jobResult = Receive-Job -Job $job
+                                Write-ExecutionLog "Script completed successfully: $($currentScript.Name)"
+                                Update-UIThreadSafe -ControlName "progressCurrentScript" -Property "Value" -Value 100
+                                
+                                # Log job output if any
+                                if ($jobResult) {
+                                    Write-ExecutionLog "Script output: $($jobResult -join '; ')"
+                                }
+                            } elseif ($job.State -eq "Failed") {
+                                $jobErrors = @()
+                                $jobResult = Receive-Job -Job $job -ErrorVariable jobErrors
+                                Write-ExecutionLog "Script failed: $($currentScript.Name) - Error: $($jobErrors -join '; ')" "ERROR"
+                                
+                                if ($Config.StopOnError) {
+                                    Remove-Job -Job $job
+                                    break
+                                }
+                            } else {
+                                Write-ExecutionLog "Script timed out: $($currentScript.Name)" "WARNING"
+                                Stop-Job -Job $job
+                            }
+                            
+                            Remove-Job -Job $job -Force
+                            
+                        } catch {
+                            Write-ExecutionLog "Error executing script $($currentScript.Name): $($_.Exception.Message)" "ERROR"
+                            
+                            if ($Config.StopOnError) {
+                                break
+                            }
                         }
+                    } # End foreach script
+                    
+                } finally {
+                    # Disconnect from vCenter servers
+                    if ($sourceConnection) {
+                        Disconnect-VIServer -Server $sourceConnection -Confirm:$false
+                        Write-ExecutionLog "Disconnected from source vCenter"
                     }
-                }
+                    
+                    if ($targetConnection) {
+                        Disconnect-VIServer -Server $targetConnection -Confirm:$false
+                        Write-ExecutionLog "Disconnected from target vCenter"
+                    }
+                } # End finally block for vCenter connections
                 
-                # Clean up job
-                Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
-            }
-            catch {
-                Write-ExecutionLog "Error executing script: $($_)" -Level "ERROR"
-                Write-ExecutionLog "Error Type: $($_.Exception.GetType().FullName)" -Level "ERROR"
-                Write-ExecutionLog "Stack Trace: $($_.ScriptStackTrace)" -Level "ERROR"
+                Write-ExecutionLog "Script execution completed"
+                Update-UIThreadSafe -ControlName "progressOverall" -Property "Value" -Value 100
+                Update-UIThreadSafe -ControlName "lblCurrentProgress" -Property "Text" -Value "Execution completed"
                 
-                if ($executionSettings.StopOnError) {
-                    Write-ExecutionLog "Stopping execution due to error" -Level "ERROR"
-                    break
-                }
-            }
-        }
+            } catch {
+                Write-ExecutionLog "Critical error during execution: $($_.Exception.Message)" "ERROR"
+            } # End main try-catch in script block
+        } # End $executionScriptBlock
         
-        # Disconnect from vCenter servers
-        try {
-            Write-ExecutionLog "Disconnecting from vCenter servers"
-            Disconnect-VIServer -Server * -Confirm:$false -ErrorAction SilentlyContinue
-        }
-        catch {
-            Write-ExecutionLog "Error disconnecting from vCenter servers: $($_)" -Level "WARNING"
-        }
+        # Add script block and parameters
+        [void]$script:ExecutionPowerShell.AddScript($executionScriptBlock)
+        [void]$script:ExecutionPowerShell.AddParameters(@{
+            Config = $script:Config
+            Scripts = $script:Scripts
+            SpecificScript = $SpecificScript
+            MainForm = $mainForm
+            LogPath = $script:LogPath
+        })
         
-        # Update UI
-        Update-UI {
-            $syncHash.BtnRunAll.Enabled = $true
-            $syncHash.BtnRunSelected.Enabled = $true
-            $syncHash.BtnStopExecution.Enabled = $false
-        }
+        # Start execution asynchronously
+        $script:ExecutionHandle = $script:ExecutionPowerShell.BeginInvoke()
         
-        Write-ExecutionLog "Execution completed"
-    })
-    
-    # Start asynchronous execution
-    $script:handle = $script:powershell.BeginInvoke()
+        # Start monitoring timer
+        Start-ExecutionMonitor
+        
+        Write-Log "Background script execution started successfully" -Level "INFO"
+        
+    } catch {
+        Write-Log "Error starting script execution: $($_.Exception.Message)" -Level "ERROR"
+        Update-UIState -State "Error"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error starting script execution: $($_.Exception.Message)", 
+            "Execution Error", 
+            [System.Windows.Forms.MessageBoxButtons]::OK, 
+            [System.Windows.Forms.MessageBoxIcon]::Error)
+    }
 }
 
 function Stop-ScriptExecution {
+    <#
+    .SYNOPSIS
+        Stops the currently running script execution
+    #>
     try {
-        if ($script:powershell -and $script:handle) {
-            Write-Log "Stopping script execution" -Level "WARNING"
-            
-            # Stop the PowerShell instance
-            $script:powershell.Stop()
-            
-            # Clean up
-            $script:powershell.Dispose()
-            $script:runspace.Dispose()
-            
-            # Update UI
-            Update-UIState -State "Stopped"
-            
-            $statusStripLabel.Text = "Execution stopped by user"
-            $txtExecutionOutput.AppendText("`r`n[$([DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss'))] [WARNING] Execution stopped by user`r`n")
-            $txtExecutionOutput.ScrollToCaret()
+        Write-Log "Stopping script execution..." -Level "INFO"
+        
+        # Set stop flag
+        $script:StopExecution = $true
+        
+        # Stop monitoring timer
+        if ($script:ExecutionTimer) {
+            Stop-ExecutionMonitor
         }
+        
+        # Stop PowerShell execution
+        if ($script:ExecutionPowerShell) {
+            try {
+                $script:ExecutionPowerShell.Stop()
+                Write-Log "PowerShell execution stopped" -Level "INFO"
+            } catch {
+                Write-Log "Error stopping PowerShell execution: $($_.Exception.Message)" -Level "WARNING"
+            }
+        }
+        
+        # Wait for completion or timeout
+        $timeout = [datetime]::Now.AddSeconds(10)
+        while ($script:ExecutionHandle -and -not $script:ExecutionHandle.IsCompleted -and [datetime]::Now -lt $timeout) {
+            Start-Sleep -Milliseconds 100
+        }
+        
+        # Force cleanup if needed
+        if ($script:ExecutionHandle -and -not $script:ExecutionHandle.IsCompleted) {
+            Write-Log "Forcing execution cleanup after timeout" -Level "WARNING"
+        }
+        
+        # Cleanup resources
+        Cleanup-ExecutionResources
+        
+        # Update UI
+        Update-UIState -State "Stopped"
+        $lblCurrentProgress.Text = "Execution stopped by user"
+        
+        Write-Log "Script execution stopped successfully" -Level "INFO"
+        
+    } catch {
+        Write-Log "Error stopping script execution: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
-    catch {
-        Write-Log "Error stopping script execution: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error stopping script execution: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+}
+
+function Start-ExecutionMonitor {
+    <#
+    .SYNOPSIS
+        Starts a timer to monitor script execution progress
+    #>
+    try {
+        # Create and configure timer
+        $script:ExecutionTimer = New-Object System.Windows.Forms.Timer
+        $script:ExecutionTimer.Interval = 1000 # Check every second
+        
+        # Define timer event handler
+        $script:ExecutionTimer.add_Tick({
+            try {
+                if ($script:ExecutionHandle -and $script:ExecutionHandle.IsCompleted) {
+                    # Execution completed
+                    Write-Log "Execution completed, stopping monitor" -Level "DEBUG"
+                    
+                    # Get results
+                    try {
+                        $results = $script:ExecutionPowerShell.EndInvoke($script:ExecutionHandle)
+                        Write-Log "Execution results retrieved" -Level "DEBUG"
+                    } catch {
+                        Write-Log "Error retrieving execution results: $($_.Exception.Message)" -Level "ERROR"
+                    }
+                    
+                    # Stop monitoring
+                    Stop-ExecutionMonitor
+                    
+                    # Cleanup resources
+                    Cleanup-ExecutionResources
+                    
+                    # Update UI
+                    Update-UIState -State "Ready"
+                    
+                    Write-Log "Script execution monitoring completed" -Level "INFO"
+                }
+            } catch {
+                Write-Log "Error in execution monitor: $($_.Exception.Message)" -Level "ERROR"
+            }
+        })
+        
+        # Start timer
+        $script:ExecutionTimer.Start()
+        Write-Log "Execution monitor started" -Level "DEBUG"
+        
+    } catch {
+        Write-Log "Error starting execution monitor: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Stop-ExecutionMonitor {
+    <#
+    .SYNOPSIS
+        Stops the execution monitoring timer
+    #>
+    try {
+        if ($script:ExecutionTimer) {
+            $script:ExecutionTimer.Stop()
+            $script:ExecutionTimer.Dispose()
+            $script:ExecutionTimer = $null
+            Write-Log "Execution monitor stopped" -Level "DEBUG"
+        }
+    } catch {
+        Write-Log "Error stopping execution monitor: $($_.Exception.Message)" -Level "ERROR"
+    }
+}
+
+function Cleanup-ExecutionResources {
+    <#
+    .SYNOPSIS
+        Cleans up execution-related resources
+    #>
+    try {
+        Write-Log "Cleaning up execution resources..." -Level "DEBUG"
+        
+        # Dispose PowerShell instance
+        if ($script:ExecutionPowerShell) {
+            try {
+                $script:ExecutionPowerShell.Dispose()
+                $script:ExecutionPowerShell = $null
+                Write-Log "PowerShell instance disposed" -Level "DEBUG"
+            } catch {
+                Write-Log "Error disposing PowerShell instance: $($_.Exception.Message)" -Level "WARNING"
+            }
+        }
+        
+        # Close and dispose runspace
+        if ($script:ExecutionRunspace) {
+            try {
+                $script:ExecutionRunspace.Close()
+                $script:ExecutionRunspace.Dispose()
+                $script:ExecutionRunspace = $null
+                Write-Log "Runspace closed and disposed" -Level "DEBUG"
+            } catch {
+                Write-Log "Error disposing runspace: $($_.Exception.Message)" -Level "WARNING"
+            }
+        }
+        
+        # Clear execution handle
+        $script:ExecutionHandle = $null
+        
+        Write-Log "Execution resources cleanup completed" -Level "DEBUG"
+        
+    } catch {
+        Write-Log "Error during execution resource cleanup: $($_.Exception.Message)" -Level "ERROR"
+    }
+}
+
+function Update-ExecutionConfiguration {
+    <#
+    .SYNOPSIS
+        Updates execution configuration from form controls
+    #>
+    try {
+        $script:Config.ExecutionTimeout = [int]$numTimeout.Value
+        $script:Config.MaxConcurrentJobs = [int]$numMaxJobs.Value
+        $script:Config.StopOnError = $chkStopOnError.Checked
+        $script:Config.SkipConfirmation = $chkSkipConfirmation.Checked
+        
+        Write-Log "Execution configuration updated - Timeout: $($script:Config.ExecutionTimeout)s, Max Jobs: $($script:Config.MaxConcurrentJobs), Stop on Error: $($script:Config.StopOnError)" -Level "DEBUG"
+        
+    } catch {
+        Write-Log "Error updating execution configuration: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
 }
 
 #endregion
 
-#region Form Settings and Log Management Functions
+#region Log Management
 
-function Load-FormSettings {
+$btnRefreshLogs_Click = {
     try {
-        # Load connection settings
-        $txtSourceServer.Text = $script:vCenterConfig.SourcevCenter
-        $txtSourceUsername.Text = $script:vCenterConfig.SourceUsername
-        $txtSourcePassword.Text = $script:vCenterConfig.SourcePassword
-        $txtTargetServer.Text = $script:vCenterConfig.TargetvCenter
-        $txtTargetUsername.Text = $script:vCenterConfig.TargetUsername
-        $txtTargetPassword.Text = $script:vCenterConfig.TargetPassword
-        
-        # Set the checkbox value
-        $chkUseCurrentCredentials.Checked = $script:vCenterConfig.UseCurrentCredentials
-        
-        # Manually update the UI based on checkbox state
-        if ($chkUseCurrentCredentials.Checked) {
-            $txtSourceUsername.Enabled = $false
-            $txtSourcePassword.Enabled = $false
-            $txtTargetUsername.Enabled = $false
-            $txtTargetPassword.Enabled = $false
-        } else {
-            $txtSourceUsername.Enabled = $true
-            $txtSourcePassword.Enabled = $true
-            $txtTargetUsername.Enabled = $true
-            $txtTargetPassword.Enabled = $true
-        }
-        
-        # Load execution settings
-        $chkStopOnError.Checked = $script:executionSettings.StopOnError
-        $chkSkipConfirmation.Checked = $script:executionSettings.SkipConfirmation
-        $numTimeout.Value = $script:executionSettings.Timeout
-        $numMaxJobs.Value = $script:executionSettings.MaxConcurrentJobs
-    }
-    catch {
-        Write-Log "Error loading form settings: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error loading form settings: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        Write-Log "Refreshing log display..." -Level "DEBUG"
+        Refresh-LogDisplay
+    } catch {
+        Write-Log "Error in refresh logs button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error refreshing logs: $($_.Exception.Message)",
+            "Refresh Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
     }
 }
 
-function Refresh-Logs {
+$btnClearLogs_Click = {
     try {
-        # Clear the logs text box first
-        if ($null -ne $logTextBox) {  # Use the correct variable name from your designer
-            $logTextBox.Clear()
-        } else {
-            Write-Log "Error: logTextBox control is null" -Level "Error"
-            return
-        }
+        Write-Log "Clearing logs..." -Level "INFO"
+        Clear-LogDisplay
+    } catch {
+        Write-Log "Error in clear logs button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error clearing logs: $($_.Exception.Message)",
+            "Clear Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnExportLogs_Click = {
+    try {
+        Write-Log "Exporting logs..." -Level "INFO"
+        Export-LogsToFile
+    } catch {
+        Write-Log "Error in export logs button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error exporting logs: $($_.Exception.Message)",
+            "Export Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+function Refresh-LogDisplay {
+    <#
+    .SYNOPSIS
+        Refreshes the log display from the log file
+    #>
+    try {
+        Write-Log "Refreshing log display from file..." -Level "DEBUG"
         
-        # Check if log path is defined and file exists
-        if ([string]::IsNullOrEmpty($script:config.LogPath)) {
-            $logTextBox.AppendText("Log path is not defined in configuration.`r`n")
-            Write-Log "Error: Log path is not defined in configuration" -Level "Error"
-            return
-        }
-        
-        if (Test-Path $script:config.LogPath) {
-            # Get the log content with error handling
-            try {
-                $logEntries = Get-Content -Path $script:config.LogPath -Tail 100 -ErrorAction Stop
+        if (Test-Path -Path $script:LogPath) {
+            # Read log file content
+            $logContent = Get-Content -Path $script:LogPath -Encoding UTF8 -ErrorAction SilentlyContinue
+            
+            if ($logContent) {
+                # Clear current display
+                $logTextBox.Clear()
                 
-                if ($null -eq $logEntries -or $logEntries.Count -eq 0) {
-                    $logTextBox.AppendText("Log file exists but is empty.`r`n")
-                } else {
-                    foreach ($entry in $logEntries) {
-                        $logTextBox.AppendText("$($entry)`r`n")
-                    }
-                }
+                # Add content to textbox
+                $logText = $logContent -join "`r`n"
+                $logTextBox.Text = $logText
                 
-                # Scroll to the end
+                # Scroll to bottom
                 $logTextBox.SelectionStart = $logTextBox.Text.Length
                 $logTextBox.ScrollToCaret()
                 
-                $statusStripLabel.Text = "Logs refreshed successfully"
-            }
-            catch {
-                $logTextBox.AppendText("Error reading log file: $($_.Exception.Message)`r`n")
-                Write-Log "Error reading log file: $($_.Exception.Message)" -Level "Error"
+                Write-Log "Log display refreshed with $($logContent.Count) lines" -Level "DEBUG"
+            } else {
+                $logTextBox.Text = "No log entries found."
+                Write-Log "No log content found to display" -Level "DEBUG"
             }
         } else {
-            $logTextBox.AppendText("Log file not found at $($script:config.LogPath)`r`n")
-            Write-Log "Log file not found at $($script:config.LogPath)" -Level "Warning"
+            $logTextBox.Text = "Log file not found: $($script:LogPath)"
+            Write-Log "Log file not found: $($script:LogPath)" -Level "WARNING"
         }
-    }
-    catch {
-        # Handle any other errors
-        $errorMessage = "Error refreshing logs: $($_.Exception.Message)"
-        Write-Log $errorMessage -Level "Error"
         
-        # Try to show error in UI if possible
-        try {
-            [System.Windows.Forms.MessageBox]::Show($errorMessage, "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        }
-        catch {
-            # If even showing the error fails, write to console
-            Write-Host "Critical error in Refresh-Logs: $errorMessage" -ForegroundColor Red
-        }
-    }
-}
-function Clear-Logs {
-    try {
-        $result = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to clear the log file?", "Confirm", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
-        if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
-            Clear-Content -Path $script:config.LogPath -ErrorAction Stop
-            $logTextBox.Clear()  # Use correct variable name
-            $logTextBox.AppendText("Log file cleared at $([DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss'))`r`n")
-            Write-Log "Log file cleared by user"
-        }
-    }
-    catch {
-        Write-Log "Error clearing logs: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error clearing logs: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+    } catch {
+        Write-Log "Error refreshing log display: $($_.Exception.Message)" -Level "ERROR"
+        $logTextBox.Text = "Error loading log file: $($_.Exception.Message)"
+        throw
     }
 }
 
-function Export-Logs {
+function Clear-LogDisplay {
+    <#
+    .SYNOPSIS
+        Clears the log display and optionally the log file
+    #>
     try {
-        $saveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
-        $saveFileDialog.Filter = "Log files (*.log)|*.log|Text files (*.txt)|*.txt|All files (*.*)|*.*"
-        $saveFileDialog.Title = "Export Logs"
-        $saveFileDialog.FileName = "vCenterMigration_$([DateTime]::Now.ToString('yyyyMMdd_HHmmss')).log"
+        $result = [System.Windows.Forms.MessageBox]::Show(
+            "Do you want to clear the log display only, or also delete the log file?`n`nYes = Clear display and delete file`nNo = Clear display only`nCancel = Do nothing",
+            "Clear Logs",
+            [System.Windows.Forms.MessageBoxButtons]::YesNoCancel,
+            [System.Windows.Forms.MessageBoxIcon]::Question
+        )
         
-        if ($saveFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            Copy-Item -Path $script:config.LogPath -Destination $saveFileDialog.FileName -ErrorAction Stop
-            $statusStripLabel.Text = "Logs exported to $($saveFileDialog.FileName)"
-            Write-Log "Logs exported to $($saveFileDialog.FileName)"
+        switch ($result) {
+            "Yes" {
+                # Clear display and delete file
+                $logTextBox.Clear()
+                
+                if (Test-Path -Path $script:LogPath) {
+                    Remove-Item -Path $script:LogPath -Force
+                    Write-Log "Log file deleted and display cleared" -Level "INFO"
+                } else {
+                    Write-Log "Log display cleared (no file to delete)" -Level "INFO"
+                }
+                
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Log file deleted and display cleared.",
+                    "Logs Cleared",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Information
+                )
+            }
+            "No" {
+                # Clear display only
+                $logTextBox.Clear()
+                Write-Log "Log display cleared (file preserved)" -Level "INFO"
+                
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Log display cleared. Log file preserved.",
+                    "Display Cleared",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Information
+                )
+            }
+            "Cancel" {
+                # Do nothing
+                Write-Log "Log clear operation cancelled by user" -Level "DEBUG"
+            }
         }
+        
+    } catch {
+        Write-Log "Error clearing log display: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
-    catch {
-        Write-Log "Error exporting logs: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error exporting logs: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+}
+
+function Export-LogsToFile {
+    <#
+    .SYNOPSIS
+        Exports logs to a user-selected file
+    #>
+    try {
+        # Configure save file dialog
+        $saveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
+        $saveFileDialog.Filter = "Text Files (*.txt)|*.txt|Log Files (*.log)|*.log|All Files (*.*)|*.*"
+        $saveFileDialog.Title = "Export Logs"
+        $saveFileDialog.FileName = "vCenter_Migration_Logs_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+        
+        if ($saveFileDialog.ShowDialog($mainForm) -eq [System.Windows.Forms.DialogResult]::OK) {
+            $exportPath = $saveFileDialog.FileName
+            
+            # Determine what to export
+            $exportContent = ""
+            
+            if (Test-Path -Path $script:LogPath) {
+                # Export from log file
+                $logFileContent = Get-Content -Path $script:LogPath -Encoding UTF8 -ErrorAction SilentlyContinue
+                if ($logFileContent) {
+                    $exportContent = $logFileContent -join "`r`n"
+                }
+            }
+            
+            # Also include current display content if different
+            if (-not [string]::IsNullOrWhiteSpace($logTextBox.Text)) {
+                if ([string]::IsNullOrWhiteSpace($exportContent)) {
+                    $exportContent = $logTextBox.Text
+                } elseif ($logTextBox.Text -ne $exportContent) {
+                    $exportContent += "`r`n`r`n=== CURRENT DISPLAY CONTENT ===`r`n"
+                    $exportContent += $logTextBox.Text
+                }
+            }
+            
+            if ([string]::IsNullOrWhiteSpace($exportContent)) {
+                $exportContent = "No log content available for export."
+            }
+            
+            # Add export header
+            $header = @"
+=== vCenter Migration Workflow Manager - Log Export ===
+Export Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+Application Version: 1.0
+Source Log File: $($script:LogPath)
+Export File: $($exportPath)
+================================================================
+
+"@
+            
+            $finalContent = $header + $exportContent
+            
+            # Write to export file
+            Set-Content -Path $exportPath -Value $finalContent -Encoding UTF8
+            
+            Write-Log "Logs exported successfully to: $($exportPath)" -Level "INFO"
+            
+            [System.Windows.Forms.MessageBox]::Show(
+                "Logs exported successfully to:`n$($exportPath)",
+                "Export Successful",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+        }
+        
+        $saveFileDialog.Dispose()
+        
+    } catch {
+        Write-Log "Error exporting logs: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
+}
+
+function Add-LogEntry {
+    <#
+    .SYNOPSIS
+        Adds a log entry to both file and display
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message,
+        
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("DEBUG", "INFO", "WARNING", "ERROR")]
+        [string]$Level = "INFO"
+    )
+    
+    try {
+        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        $logEntry = "[$($timestamp)] [$($Level)] $($Message)"
+        
+        # Add to log file
+        Add-Content -Path $script:LogPath -Value $logEntry -Encoding UTF8
+        
+        # Add to display if visible
+        if ($logTextBox.Visible) {
+            $logTextBox.AppendText("$($logEntry)`r`n")
+            $logTextBox.ScrollToCaret()
+        }
+        
+    } catch {
+        # Fail silently for logging errors to prevent infinite loops
+    }
+}
+
+#endregion
+
+#region Settings Management
+
+$btnSaveAll_Click = {
+    try {
+        Write-Log "Saving all settings..." -Level "INFO"
+        Save-AllSettings
+        [System.Windows.Forms.MessageBox]::Show(
+            "All settings saved successfully!",
+            "Settings Saved",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+    } catch {
+        Write-Log "Error in save all button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error saving settings: $($_.Exception.Message)",
+            "Save Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnExit_Click = {
+    try {
+        Write-Log "Exit button clicked" -Level "INFO"
+        
+        # Check if execution is running
+        if ($script:ExecutionPowerShell -and $script:ExecutionHandle -and -not $script:ExecutionHandle.IsCompleted) {
+            $result = [System.Windows.Forms.MessageBox]::Show(
+                "Script execution is still running. Do you want to stop execution and exit?",
+                "Execution in Progress",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question
+            )
+            
+            if ($result -eq [System.Windows.Forms.DialogResult]::No) {
+                return
+            } else {
+                Stop-ScriptExecution
+            }
+        }
+        
+        # Ask to save settings
+        $result = [System.Windows.Forms.MessageBox]::Show(
+            "Do you want to save your current settings before exiting?",
+            "Save Settings",
+            [System.Windows.Forms.MessageBoxButtons]::YesNoCancel,
+            [System.Windows.Forms.MessageBoxIcon]::Question
+        )
+        
+        switch ($result) {
+            "Yes" {
+                try {
+                    Save-AllSettings
+                    Write-Log "Settings saved before exit" -Level "INFO"
+                } catch {
+                    Write-Log "Error saving settings before exit: $($_.Exception.Message)" -Level "ERROR"
+                    [System.Windows.Forms.MessageBox]::Show(
+                        "Error saving settings: $($_.Exception.Message)`n`nExit anyway?",
+                        "Save Error",
+                        [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                        [System.Windows.Forms.MessageBoxIcon]::Warning
+                    )
+                    if ($result -eq [System.Windows.Forms.DialogResult]::No) {
+                        return
+                    }
+                }
+                $mainForm.Close()
+            }
+            "No" {
+                Write-Log "Exiting without saving settings" -Level "INFO"
+                $mainForm.Close()
+            }
+            "Cancel" {
+                Write-Log "Exit cancelled by user" -Level "DEBUG"
+                return
+            }
+        }
+        
+    } catch {
+        Write-Log "Error in exit button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error during exit: $($_.Exception.Message)",
+            "Exit Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnHelp_Click = {
+    try {
+        Write-Log "Help button clicked" -Level "DEBUG"
+        Show-HelpDialog
+    } catch {
+        Write-Log "Error in help button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error showing help: $($_.Exception.Message)",
+            "Help Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
     }
 }
 
 function Save-AllSettings {
+    <#
+    .SYNOPSIS
+        Saves all application settings to configuration
+    #>
     try {
-        # Save connection settings
-        $script:vCenterConfig.SourcevCenter = $txtSourceServer.Text
-        $script:vCenterConfig.SourceUsername = $txtSourceUsername.Text
-        $script:vCenterConfig.SourcePassword = $txtSourcePassword.Text
-        $script:vCenterConfig.TargetvCenter = $txtTargetServer.Text
-        $script:vCenterConfig.TargetUsername = $txtTargetUsername.Text
-        $script:vCenterConfig.TargetPassword = $txtTargetPassword.Text
-        $script:vCenterConfig.UseCurrentCredentials = $chkUseCurrentCredentials.Checked
+        Write-Log "Saving all application settings..." -Level "INFO"
+        
+        # Update configuration with current form values
+        Update-ConfigurationFromForm
+        
+        # Save scripts collection
+        $script:Config.Scripts = $script:Scripts
         
         # Save execution settings
-        $script:executionSettings.StopOnError = $chkStopOnError.Checked
-        $script:executionSettings.SkipConfirmation = $chkSkipConfirmation.Checked
-        $script:executionSettings.Timeout = $numTimeout.Value
-        $script:executionSettings.MaxConcurrentJobs = $numMaxJobs.Value
+        $script:Config.ExecutionTimeout = [int]$numTimeout.Value
+        $script:Config.MaxConcurrentJobs = [int]$numMaxJobs.Value
+        $script:Config.StopOnError = $chkStopOnError.Checked
+        $script:Config.SkipConfirmation = $chkSkipConfirmation.Checked
         
-        # Save all settings
-        $saved = Save-MigrationConfig
-        if ($saved) {
-            $statusStripLabel.Text = "All settings saved successfully"
-            Write-Log "All settings saved successfully"
-            [System.Windows.Forms.MessageBox]::Show("All settings saved successfully", "Save Complete", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        } else {
-            $statusStripLabel.Text = "Failed to save settings"
-            Write-Log "Failed to save settings" -Level "ERROR"
-            [System.Windows.Forms.MessageBox]::Show("Failed to save settings", "Save Failed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        # Save window state
+        $script:Config.WindowState = $mainForm.WindowState.ToString()
+        $script:Config.WindowSize = @{
+            Width = $mainForm.Width
+            Height = $mainForm.Height
         }
-    }
-    catch {
-        Write-Log "Error saving settings: $($_.Exception.Message)" -Level "Error"
-        [System.Windows.Forms.MessageBox]::Show("Error saving settings: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        $script:Config.WindowLocation = @{
+            X = $mainForm.Location.X
+            Y = $mainForm.Location.Y
+        }
+        
+        # Save to file
+        Save-Configuration -Config $script:Config
+        
+        Write-Log "All settings saved successfully" -Level "INFO"
+        
+    } catch {
+        Write-Log "Error saving all settings: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
 }
 
-function Show-Help {
-    $helpText = @"
-vCenter Migration Workflow Manager Help
 
-This tool helps you manage and execute PowerCLI scripts for vCenter migration.
 
-Key Features:
-- Connect to source and target vCenter servers
-- Manage a collection of migration scripts
-- Configure script parameters
-- Execute scripts in sequence
-- Monitor execution progress
-- View and export logs
-
-For more information, please contact your administrator.
-"@
-    
-    [System.Windows.Forms.MessageBox]::Show($helpText, "Help", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-}
-
-function Check-PowerCLI {
+function Update-ConfigurationFromForm {
+    <#
+    .SYNOPSIS
+        Updates configuration object with current form values
+    #>
     try {
-        Write-Log "Checking if VMware PowerCLI is available..."
+        # Connection settings
+        $script:Config.SourceServer = $txtSourceServer.Text.Trim()
+        $script:Config.SourceUsername = $txtSourceUsername.Text.Trim()
+        $script:Config.TargetServer = $txtTargetServer.Text.Trim()
+        $script:Config.TargetUsername = $txtTargetUsername.Text.Trim()
+        $script:Config.UseCurrentCredentials = $chkUseCurrentCredentials.Checked
         
-        # Check if module is available without loading it
-        $moduleAvailable = Get-Module -Name VMware.PowerCLI -ListAvailable
-        
-        if ($null -eq $moduleAvailable) {
-            Write-Log "VMware PowerCLI module is not installed." -Level "Warning"
-            $message = "VMware PowerCLI module is not installed. This tool requires PowerCLI for vCenter operations.`n`n"
-            $message += "Please install PowerCLI using: Install-Module -Name VMware.PowerCLI -Scope CurrentUser"
-            
-            [System.Windows.Forms.MessageBox]::Show($message, "PowerCLI Not Found", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            return $false
+        # Secure password handling
+        if (-not [string]::IsNullOrWhiteSpace($txtSourcePassword.Text)) {
+            $script:Config.SourcePassword = ConvertTo-SecureString $txtSourcePassword.Text -AsPlainText -Force
+        }
+        if (-not [string]::IsNullOrWhiteSpace($txtTargetPassword.Text)) {
+            $script:Config.TargetPassword = ConvertTo-SecureString $txtTargetPassword.Text -AsPlainText -Force
         }
         
-        Write-Log "VMware PowerCLI module is installed."
-        return $true
-    }
-    catch {
-        Write-Log "Error checking PowerCLI: $($_.Exception.Message)" -Level "Error"
-        return $false
+        Write-Log "Configuration updated from form values" -Level "DEBUG"
+        
+    } catch {
+        Write-Log "Error updating configuration from form: $($_.Exception.Message)" -Level "ERROR"
+        throw
     }
 }
 
-# Add to AI_Gen_Workflow_Wrapper.ps1
-function Register-EventHandlers {
-    Write-Log "Registering event handlers" -Level "INFO"
-    
-    # Add Click handlers for Connection tab
-    $mainForm.chkUseCurrentCredentials.Add_CheckedChanged({
-        $mainForm.txtSourceUsername.Enabled = -not $mainForm.chkUseCurrentCredentials.Checked
-        $mainForm.txtSourcePassword.Enabled = -not $mainForm.chkUseCurrentCredentials.Checked
-        $mainForm.txtTargetUsername.Enabled = -not $mainForm.chkUseCurrentCredentials.Checked
-        $mainForm.txtTargetPassword.Enabled = -not $mainForm.chkUseCurrentCredentials.Checked
-    })
-    
-    $mainForm.btnBrowse.Add_Click({ Browse-ScriptFile })
-    $mainForm.btnSaveAll.Add_Click({ Save-AllSettings })
-    $mainForm.btnExit.Add_Click({ $mainForm.Close() })
-    $mainForm.btnHelp.Add_Click({ Show-Help })
-    
-    # Scripts tab event handlers
-    $mainForm.lvScripts.Add_SelectedIndexChanged({ Load-ScriptDetails })
-    
-    # We're only adding handlers that aren't already defined in the designer
-    # The designer-defined handlers use the pattern: $element.add_Event($function_name)
-    
-    Write-Log "Event handlers registered successfully" -Level "INFO"
+function Show-HelpDialog {
+    <#
+    .SYNOPSIS
+        Shows the application help dialog
+    #>
+    try {
+        $helpText = @"
+vCenter Migration Workflow Manager - Help
+
+OVERVIEW:
+This application helps you manage and execute PowerShell scripts for vCenter migration workflows.
+
+MAIN FEATURES:
+
+1. CONNECTION MANAGEMENT:
+   - Configure source and target vCenter servers
+   - Test connections before execution
+   - Save/load connection settings
+   - Support for current credentials or specified credentials
+
+2. SCRIPT MANAGEMENT:
+   - Add PowerShell scripts to execution queue
+   - Reorder scripts for proper execution sequence
+   - Enable/disable individual scripts
+   - Auto-detect script parameters
+   - Manual parameter configuration
+
+3. EXECUTION:
+   - Run all enabled scripts or selected script only
+   - Background execution to keep UI responsive
+   - Progress monitoring and logging
+   - Stop execution capability
+   - Configurable timeout and error handling
+
+4. LOGGING:
+   - Real-time execution logs
+   - Export logs to file
+   - Clear log display
+   - Persistent log files
+
+USAGE TIPS:
+- Always test connections before running scripts
+- Use parameter detection to automatically find script parameters
+- Review and configure parameters for each script
+- Monitor execution progress in the Execution tab
+- Check logs for detailed execution information
+
+TROUBLESHOOTING:
+- Ensure VMware PowerCLI is installed
+- Verify script paths are accessible
+- Check vCenter connectivity and credentials
+- Review logs for detailed error information
+
+For additional support, check the application logs or contact your system administrator.
+"@
+
+        [System.Windows.Forms.MessageBox]::Show(
+            $helpText,
+            "vCenter Migration Workflow Manager - Help",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+        
+    } catch {
+        Write-Log "Error showing help dialog: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
 }
 
-function Initialize-ListViews {
-    Write-Log "Initializing ListView controls" -Level "INFO"
-    
-    # Initialize Scripts ListView columns
-    $mainForm.lvScripts.Columns.Clear()
-    $mainForm.lvScripts.Columns.Add("Order", 50) | Out-Null
-    $mainForm.lvScripts.Columns.Add("Script", 200) | Out-Null
-    $mainForm.lvScripts.Columns.Add("Enabled", 80) | Out-Null
-    
-    # Initialize Parameters ListView columns
-    $mainForm.lvParameters.Columns.Clear()
-    $mainForm.lvParameters.Columns.Add("Name", 120) | Out-Null
-    $mainForm.lvParameters.Columns.Add("Value", 150) | Out-Null
-    $mainForm.lvParameters.Columns.Add("Type", 100) | Out-Null
-    
-    Write-Log "ListView columns initialized successfully" -Level "INFO"
+function Reset-ApplicationSettings {
+    <#
+    .SYNOPSIS
+        Resets application to default settings
+    #>
+    try {
+        $result = [System.Windows.Forms.MessageBox]::Show(
+            "This will reset all application settings to defaults. Continue?",
+            "Reset Settings",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        )
+        
+        if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+            # Reset configuration
+            $script:Config = Get-DefaultConfiguration
+            
+            # Reset scripts
+            $script:Scripts = @()
+            
+            # Reset form controls
+            Initialize-FormControls
+            Update-ScriptsListView
+            Clear-ScriptDetails
+            
+            Write-Log "Application settings reset to defaults" -Level "INFO"
+            
+            [System.Windows.Forms.MessageBox]::Show(
+                "Application settings have been reset to defaults.",
+                "Settings Reset",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+        }
+        
+    } catch {
+        Write-Log "Error resetting application settings: $($_.Exception.Message)" -Level "ERROR"
+        throw
+    }
 }
+
 #endregion
+
+# End of AI_Gen_Workflow_Wrapper.ps1
