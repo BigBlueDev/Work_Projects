@@ -1,4 +1,4 @@
-# Launch.ps1
+# Launch.ps1 (ROOT DIRECTORY VERSION)
 # Entry point for the AI Gen Workflow Wrapper application
 
 # Get the script's root directory
@@ -8,7 +8,7 @@ Set-Location -Path $Global:ScriptRoot
 Write-Host "=== AI Gen Workflow Wrapper ===" -ForegroundColor Green
 Write-Host "Current Script Root: $Global:ScriptRoot" -ForegroundColor Cyan
 
-# Define folder structure paths
+# Define folder structure paths based on your actual structure
 $Global:Paths = @{
     Root        = $Global:ScriptRoot
     MainForm    = Join-Path $Global:ScriptRoot "MainForm"
@@ -83,12 +83,25 @@ function Import-ProjectFile {
     }
 }
 
-# Initialize logging first
-try {
-    if (-not (Test-Path $Global:Paths.Logs)) {
-        New-Item -ItemType Directory -Path $Global:Paths.Logs -Force | Out-Null
+# Initialize required directories
+Write-Host "`n--- Initializing Directory Structure ---" -ForegroundColor Cyan
+foreach ($pathPair in $Global:Paths.GetEnumerator()) {
+    if (-not (Test-Path $pathPair.Value)) {
+        try {
+            New-Item -ItemType Directory -Path $pathPair.Value -Force | Out-Null
+            Write-Host "Created directory: $($pathPair.Key) -> $($pathPair.Value)" -ForegroundColor Green
+        }
+        catch {
+            Write-Warning "Failed to create directory: $($pathPair.Value) - $_"
+        }
     }
-    
+    else {
+        Write-Host "✓ Directory exists: $($pathPair.Key)" -ForegroundColor Gray
+    }
+}
+
+# Initialize basic logging
+try {
     $Global:LogFile = Join-Path $Global:Paths.Logs "Application_$(Get-Date -Format 'yyyy-MM-dd').log"
     
     function Write-Log {
@@ -127,7 +140,7 @@ Write-Host "`n--- Loading Application Components ---" -ForegroundColor Cyan
 # Load components in correct order
 $loadSuccess = $true
 
-# 1. Load Global Variables and Functions
+# 1. Load Global Variables and Functions first
 if (-not (Import-ProjectFile -FileName "Globals.ps1" -Location "Forms" -Description "Global Variables and Functions")) {
     $loadSuccess = $false
 }
@@ -142,20 +155,6 @@ if ($loadSuccess -and (-not (Import-ProjectFile -FileName "AI_Gen_Workflow_Wrapp
     $loadSuccess = $false
 }
 
-# 4. Load SubForm if needed (EditParam)
-if ($loadSuccess) {
-    Write-Host "`n--- Loading Sub-Forms ---" -ForegroundColor Cyan
-    
-    # Load EditParam SubForm
-    if (-not (Import-ProjectFile -FileName "EditParam.designer.ps1" -Location "SubForms" -Description "EditParam Form Designer")) {
-        Write-Warning "EditParam designer failed to load - some features may not work"
-    }
-    
-    if (-not (Import-ProjectFile -FileName "EditParam.ps1" -Location "SubForms" -Description "EditParam Form Logic")) {
-        Write-Warning "EditParam logic failed to load - some features may not work"
-    }
-}
-
 # Initialize and start application
 if ($loadSuccess) {
     Write-Host "`n--- Starting Application ---" -ForegroundColor Cyan
@@ -167,16 +166,26 @@ if ($loadSuccess) {
             Write-Log "Application initialized successfully" -Level "INFO"
         }
         
-        # Verify main form exists
-        if ($null -eq $mainForm) {
-            throw "Main form object not found. Form designer may not have loaded correctly."
+        # Try to find the main form variable with different possible names
+        $formVariableNames = @('mainForm', 'MainForm', 'form', 'Form1', 'AI_Gen_Workflow_Wrapper')
+        $formFound = $false
+        
+        foreach ($varName in $formVariableNames) {
+            $formVar = Get-Variable -Name $varName -ErrorAction SilentlyContinue
+            if ($formVar -and $formVar.Value -and $formVar.Value.GetType().Name -like "*Form*") {
+                Write-Host "✓ Found main form: $varName" -ForegroundColor Green
+                Write-Log "Application started successfully" -Level "INFO"
+                
+                # Show the main form
+                [void]$formVar.Value.ShowDialog()
+                $formFound = $true
+                break
+            }
         }
         
-        Write-Host "✓ Application started successfully" -ForegroundColor Green
-        Write-Log "Application started successfully" -Level "INFO"
-        
-        # Show the main form
-        [void]$mainForm.ShowDialog()
+        if (-not $formFound) {
+            throw "Main form object not found. Form designer may not have loaded correctly. Expected variables: $($formVariableNames -join ', ')"
+        }
         
     }
     catch {
