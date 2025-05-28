@@ -270,7 +270,7 @@ $btnTestSourceConnection.Size = (New-Object -TypeName System.Drawing.Size -Argum
 $btnTestSourceConnection.TabIndex = [System.Int32]6
 $btnTestSourceConnection.Text = [System.String]'Test Connection'
 $btnTestSourceConnection.UseVisualStyleBackColor = $true
-#$btnTestSourceConnection.add_Click($btnTestSourceConnection_Click)
+$btnTestSourceConnection.add_Click($btnTestSourceConnection_Click)
 #
 #grpTarget
 #
@@ -342,7 +342,7 @@ $btnTestTargetConnection.Size = (New-Object -TypeName System.Drawing.Size -Argum
 $btnTestTargetConnection.TabIndex = [System.Int32]6
 $btnTestTargetConnection.Text = [System.String]'Test Connection'
 $btnTestTargetConnection.UseVisualStyleBackColor = $true
-#$btnTestTargetConnection.add_Click($btnTestTargetConnection_Click)
+$btnTestTargetConnection.add_Click($btnTestTargetConnection_Click)
 #
 #chkUseCurrentCredentials
 #
@@ -361,7 +361,7 @@ $btnSaveConnection.Size = (New-Object -TypeName System.Drawing.Size -ArgumentLis
 $btnSaveConnection.TabIndex = [System.Int32]3
 $btnSaveConnection.Text = [System.String]'Save Connection Settings'
 $btnSaveConnection.UseVisualStyleBackColor = $true
-#$btnSaveConnection.add_Click($btnSaveConnection_Click)
+$btnSaveConnection.add_Click($btnSaveConnection_Click)
 #
 #btnLoadConnection
 #
@@ -371,7 +371,7 @@ $btnLoadConnection.Size = (New-Object -TypeName System.Drawing.Size -ArgumentLis
 $btnLoadConnection.TabIndex = [System.Int32]4
 $btnLoadConnection.Text = [System.String]'Load Connection Settings'
 $btnLoadConnection.UseVisualStyleBackColor = $true
-#$btnLoadConnection.add_Click($btnLoadConnection_Click)
+$btnLoadConnection.add_Click($btnLoadConnection_Click)
 #
 #tabScripts
 #
@@ -422,7 +422,7 @@ $btnAddScript.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([
 $btnAddScript.TabIndex = [System.Int32]1
 $btnAddScript.Text = [System.String]'Add Script'
 $btnAddScript.UseVisualStyleBackColor = $true
-#$btnAddScript.add_Click($btnAddScript_Click)
+$btnAddScript.add_Click($btnAddScript_Click)
 #
 #btnRemoveScript
 #
@@ -433,7 +433,7 @@ $btnRemoveScript.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList 
 $btnRemoveScript.TabIndex = [System.Int32]2
 $btnRemoveScript.Text = [System.String]'Remove Script'
 $btnRemoveScript.UseVisualStyleBackColor = $true
-#$btnRemoveScript.add_Click($btnRemoveScript_Click)
+$btnRemoveScript.add_Click($btnRemoveScript_Click)
 #
 #btnMoveUp
 #
@@ -444,7 +444,7 @@ $btnMoveUp.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([Sys
 $btnMoveUp.TabIndex = [System.Int32]3
 $btnMoveUp.Text = [System.String]'Move Up'
 $btnMoveUp.UseVisualStyleBackColor = $true
-#$btnMoveUp.add_Click($btnMoveUp_Click)
+$btnMoveUp.add_Click($btnMoveUp_Click)
 #
 #btnMoveDown
 #
@@ -455,7 +455,7 @@ $btnMoveDown.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([S
 $btnMoveDown.TabIndex = [System.Int32]4
 $btnMoveDown.Text = [System.String]'Move Down'
 $btnMoveDown.UseVisualStyleBackColor = $true
-#$btnMoveDown.add_Click($btnMoveDown_Click)
+$btnMoveDown.add_Click($btnMoveDown_Click)
 #
 #grpScriptDetails
 #
@@ -500,6 +500,7 @@ $btnBrowse.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([Sys
 $btnBrowse.TabIndex = [System.Int32]2
 $btnBrowse.Text = [System.String]'Browse...'
 $btnBrowse.UseVisualStyleBackColor = $true
+$btnBrowse.add_Click($btnBrowse_Click)
 #
 #lblScriptDescription
 #
@@ -563,7 +564,7 @@ $btnAddParam.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([S
 $btnAddParam.TabIndex = [System.Int32]1
 $btnAddParam.Text = [System.String]'Add'
 $btnAddParam.UseVisualStyleBackColor = $true
-#$btnAddParam.add_Click($btnAddParam_Click)
+$btnAddParam.add_Click($btnAddParam_Click)
 #
 #btnEditParam
 #
@@ -574,7 +575,7 @@ $btnEditParam.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([
 $btnEditParam.TabIndex = [System.Int32]2
 $btnEditParam.Text = [System.String]'Edit'
 $btnEditParam.UseVisualStyleBackColor = $true
-#$btnEditParam.add_Click($btnEditParam_Click)
+$btnEditParam.add_Click($btnEditParam_Click)
 #
 #btnRemoveParam
 #
@@ -585,7 +586,7 @@ $btnRemoveParam.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @
 $btnRemoveParam.TabIndex = [System.Int32]3
 $btnRemoveParam.Text = [System.String]'Remove'
 $btnRemoveParam.UseVisualStyleBackColor = $true
-#$btnRemoveParam.add_Click($btnRemoveParam_Click)
+$btnRemoveParam.add_Click($btnRemoveParam_Click)
 #
 #btnDetectParams
 #
@@ -596,7 +597,7 @@ $btnDetectParams.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList 
 $btnDetectParams.TabIndex = [System.Int32]4
 $btnDetectParams.Text = [System.String]'Detect Parameters'
 $btnDetectParams.UseVisualStyleBackColor = $true
-#$btnDetectParams.add_Click($btnDetectParams_Click)
+$btnDetectParams.add_Click($btnDetectParams_Click)
 #
 #btnSaveScriptDetails
 #
@@ -607,7 +608,7 @@ $btnSaveScriptDetails.Size = (New-Object -TypeName System.Drawing.Size -Argument
 $btnSaveScriptDetails.TabIndex = [System.Int32]7
 $btnSaveScriptDetails.Text = [System.String]'Save Script Details'
 $btnSaveScriptDetails.UseVisualStyleBackColor = $true
-#$btnSaveScriptDetails.add_Click($btnSaveScriptDetails_Click)
+$btnSaveScriptDetails.add_Click($btnSaveScriptDetails_Click)
 #
 #tabExecution
 #
@@ -714,7 +715,7 @@ $btnRunAll.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([Sys
 $btnRunAll.TabIndex = [System.Int32]0
 $btnRunAll.Text = [System.String]'Run All Scripts'
 $btnRunAll.UseVisualStyleBackColor = $true
-#$btnRunAll.add_Click($btnRunAll_Click)
+$btnRunAll.add_Click($btnRunAll_Click)
 #
 #btnRunSelected
 #
@@ -724,7 +725,7 @@ $btnRunSelected.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @
 $btnRunSelected.TabIndex = [System.Int32]1
 $btnRunSelected.Text = [System.String]'Run Selected Script'
 $btnRunSelected.UseVisualStyleBackColor = $true
-#$btnRunSelected.add_Click($btnRunSelected_Click)
+$btnRunSelected.add_Click($btnRunSelected_Click)
 #
 #btnStopExecution
 #
@@ -735,7 +736,7 @@ $btnStopExecution.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList
 $btnStopExecution.TabIndex = [System.Int32]2
 $btnStopExecution.Text = [System.String]'Stop Execution'
 $btnStopExecution.UseVisualStyleBackColor = $true
-#$btnStopExecution.add_Click($btnStopExecution_Click)
+$btnStopExecution.add_Click($btnStopExecution_Click)
 #
 #grpProgress
 #
@@ -850,7 +851,7 @@ $btnRefreshLogs.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @
 $btnRefreshLogs.TabIndex = [System.Int32]1
 $btnRefreshLogs.Text = [System.String]'Refresh Logs'
 $btnRefreshLogs.UseVisualStyleBackColor = $true
-#$btnRefreshLogs.add_Click($btnRefreshLogs_Click)
+$btnRefreshLogs.add_Click($btnRefreshLogs_Click)
 #
 #btnClearLogs
 #
@@ -861,7 +862,7 @@ $btnClearLogs.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([
 $btnClearLogs.TabIndex = [System.Int32]2
 $btnClearLogs.Text = [System.String]'Clear Logs'
 $btnClearLogs.UseVisualStyleBackColor = $true
-#$btnClearLogs.add_Click($btnClearLogs_Click)
+$btnClearLogs.add_Click($btnClearLogs_Click)
 #
 #btnExportLogs
 #
@@ -872,7 +873,7 @@ $btnExportLogs.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @(
 $btnExportLogs.TabIndex = [System.Int32]3
 $btnExportLogs.Text = [System.String]'Export Logs'
 $btnExportLogs.UseVisualStyleBackColor = $true
-#$btnExportLogs.add_Click($btnExportLogs_Click)
+$btnExportLogs.add_Click($btnExportLogs_Click)
 #
 #statusStrip
 #
@@ -908,6 +909,7 @@ $btnSaveAll.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([Sy
 $btnSaveAll.TabIndex = [System.Int32]0
 $btnSaveAll.Text = [System.String]'Save All Settings'
 $btnSaveAll.UseVisualStyleBackColor = $true
+$btnSaveAll.add_Click($btnSaveAll_Click)
 #
 #btnExit
 #
@@ -917,6 +919,7 @@ $btnExit.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([Syste
 $btnExit.TabIndex = [System.Int32]1
 $btnExit.Text = [System.String]'Exit'
 $btnExit.UseVisualStyleBackColor = $true
+$btnExit.add_Click($btnExit_Click)
 #
 #btnHelp
 #
@@ -926,6 +929,7 @@ $btnHelp.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([Syste
 $btnHelp.TabIndex = [System.Int32]2
 $btnHelp.Text = [System.String]'Help'
 $btnHelp.UseVisualStyleBackColor = $true
+$btnHelp.add_Click($btnHelp_Click)
 #
 #openFileDialog1
 #
@@ -940,8 +944,8 @@ $mainForm.Controls.Add($statusStrip)
 $mainForm.MinimumSize = (New-Object -TypeName System.Drawing.Size -ArgumentList @([System.Int32]800,[System.Int32]600))
 $mainForm.Name = [System.String]'mainForm'
 $mainForm.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
-$mainForm.TopMost = $true
 $mainForm.Text = [System.String]'vCenter Migration Workflow Manager'
+$mainForm.TopMost = $true
 $tabControl.ResumeLayout($false)
 $tabConnection.ResumeLayout($false)
 $grpSource.ResumeLayout($false)
@@ -1044,16 +1048,8 @@ Add-Member -InputObject $mainForm -Name btnExit -Value $btnExit -MemberType Note
 Add-Member -InputObject $mainForm -Name openFileDialog1 -Value $openFileDialog1 -MemberType NoteProperty
 Add-Member -InputObject $mainForm -Name btnHelp -Value $btnHelp -MemberType NoteProperty
 }
+[System.Object]$AI_Gen_Workflow_Wrapper = $null
+[System.Object]$Global:AI_Gen_Workflow_Wrapper = $null
+[System.Object]$Global:MainForm = $null
 . InitializeComponent
 
-
-# ADD THE FIX CODE HERE - AFTER the InitializeComponent call
-$AI_Gen_Workflow_Wrapper = $mainForm
-$Global:AI_Gen_Workflow_Wrapper = $mainForm
-$Global:MainForm = $mainForm
-
-# Debug output
-Write-Host "Designer: Form created successfully as 'mainForm'" -ForegroundColor Green
-Write-Host "Designer: Form also available as 'AI_Gen_Workflow_Wrapper'" -ForegroundColor Green
-Write-Host "Designer: Form type is $($mainForm.GetType().Name)" -ForegroundColor Cyan
-Write-Host "Designer: Form text is '$($mainForm.Text)'" -ForegroundColor Gray

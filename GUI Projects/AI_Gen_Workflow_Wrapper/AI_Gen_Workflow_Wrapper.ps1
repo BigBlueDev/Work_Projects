@@ -1,4 +1,6 @@
 
+
+
 <#
 .SYNOPSIS
     vCenter Migration Workflow Manager - Core Functionality Wrapper
@@ -318,72 +320,57 @@ function Initialize-ListViewColumns {
 #region Event Handler Registration
 
 function Register-EventHandlers {
-    <#
-    .SYNOPSIS
-        Register all event handlers for form controls with duplicate prevention
-    #>
     try {
-        Write-Log "Registering event handlers..." -Level "INFO"
+        Write-Log "Registering event handlers for form controls..." -Level "DEBUG"
         
-        # Check if already registered to prevent duplicates
-        if ($script:EventHandlersRegistered) {
-            Write-Log "Event handlers already registered, skipping..." -Level "DEBUG"
-            return
+        # Event handler for Test Source Connection button
+        if ($btnTestSourceConnection) {
+            $btnTestSourceConnection.add_Click($btnTestSourceConnection_Click)
+            Write-Host "✓ Registered: btnTestSourceConnection" -ForegroundColor Green
+        } else {
+            Write-Host "⚠ Not found: btnTestSourceConnection" -ForegroundColor Yellow
         }
         
-        # Connection tab event handlers
-        $btnTestSourceConnection.add_Click($btnTestSourceConnection_Click)
-        $btnTestTargetConnection.add_Click($btnTestTargetConnection_Click)
-        $btnSaveConnection.add_Click($btnSaveConnection_Click)
-        $btnLoadConnection.add_Click($btnLoadConnection_Click)
+        # Event handler for Test Target Connection button  
+        if ($btnTestTargetConnection) {
+            $btnTestTargetConnection.add_Click($btnTestTargetConnection_Click)
+            Write-Host "✓ Registered: btnTestTargetConnection" -ForegroundColor Green
+        } else {
+            Write-Host "⚠ Not found: btnTestTargetConnection" -ForegroundColor Yellow
+        }
         
-        # Scripts tab event handlers
-        $btnAddScript.add_Click($btnAddScript_Click)
-        $btnRemoveScript.add_Click($btnRemoveScript_Click)
-        $btnMoveUp.add_Click($btnMoveUp_Click)
-        $btnMoveDown.add_Click($btnMoveDown_Click)
-        $btnBrowse.add_Click($btnBrowse_Click)
-        $btnSaveScriptDetails.add_Click($btnSaveScriptDetails_Click)
+        # Event handler for Load Source button
+        if ($btnLoadSource) {
+            $btnLoadSource.add_Click($btnLoadSource_Click)
+            Write-Host "✓ Registered: btnLoadSource" -ForegroundColor Green
+        } else {
+            Write-Host "⚠ Not found: btnLoadSource" -ForegroundColor Yellow
+        }
         
-        # Parameter management event handlers
-        $btnAddParam.add_Click($btnAddParam_Click)
-        $btnEditParam.add_Click($btnEditParam_Click)
-        $btnRemoveParam.add_Click($btnRemoveParam_Click)
-        $btnDetectParams.add_Click($btnDetectParams_Click)
+        # Event handler for Load Target button
+        if ($btnLoadTarget) {
+            $btnLoadTarget.add_Click($btnLoadTarget_Click)
+            Write-Host "✓ Registered: btnLoadTarget" -ForegroundColor Green
+        } else {
+            Write-Host "⚠ Not found: btnLoadTarget" -ForegroundColor Yellow
+        }
         
-        # Execution tab event handlers
-        $btnRunAll.add_Click($btnRunAll_Click)
-        $btnRunSelected.add_Click($btnRunSelected_Click)
-        $btnStopExecution.add_Click($btnStopExecution_Click)
+        # Event handler for Execute button
+        if ($btnExecute) {
+            $btnExecute.add_Click($btnExecute_Click)
+            Write-Host "✓ Registered: btnExecute" -ForegroundColor Green
+        } else {
+            Write-Host "⚠ Not found: btnExecute" -ForegroundColor Yellow
+        }
         
-        # Log management event handlers
-        $btnRefreshLogs.add_Click($btnRefreshLogs_Click)
-        $btnClearLogs.add_Click($btnClearLogs_Click)
-        $btnExportLogs.add_Click($btnExportLogs_Click)
-        
-        # Bottom panel event handlers
-        $btnSaveAll.add_Click($btnSaveAll_Click)
-        $btnExit.add_Click($btnExit_Click)
-        $btnHelp.add_Click($btnHelp_Click)
-        
-        # ListView selection event handlers
-        $lvScripts.add_SelectedIndexChanged($lvScripts_SelectedIndexChanged)
-        $lvParameters.add_SelectedIndexChanged($lvParameters_SelectedIndexChanged)
-        
-        # Form event handlers
-        $mainForm.add_FormClosing($mainForm_FormClosing)
-        $mainForm.add_Load($mainForm_Load)
-        
-        # Mark as registered
-        $script:EventHandlersRegistered = $true
-        
-        Write-Log "Event handlers registered successfully" -Level "INFO"
+        Write-Log "Event handler registration completed" -Level "INFO"
         
     } catch {
         Write-Log "Error registering event handlers: $($_.Exception.Message)" -Level "ERROR"
         throw
     }
 }
+
 
 function Diagnose-EventHandlers {
     <#
