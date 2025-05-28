@@ -15,7 +15,7 @@
     <RequireElevation>False</RequireElevation>
     <PackageModules>False</PackageModules>
     <HighDPISupport>False</HighDPISupport>
-    <StartupFile>..\Launch.ps1</StartupFile>
+    <StartupFile>Launch.ps1</StartupFile>
     <WorkingDirectory>C:\Users\DMM0090\OneDrive - Defense Logistics Agency\Documents\All Scripts\Work_Projects\GUI Projects\AI_Gen_Workflow_Wrapper</WorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -70,6 +70,7 @@
     <Compile Include="EditParam.ps1">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="ValidateStructure.ps1" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="AI_Gen_Workflow_Wrapper.resx">

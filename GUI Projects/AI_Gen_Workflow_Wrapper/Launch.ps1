@@ -1,5 +1,9 @@
-# Launch.ps1 (ROOT DIRECTORY VERSION)
+# Launch.ps1
 # Entry point for the AI Gen Workflow Wrapper application
+
+# Load required assemblies first
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
 # Get the script's root directory
 $Global:ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -8,13 +12,11 @@ Set-Location -Path $Global:ScriptRoot
 Write-Host "=== AI Gen Workflow Wrapper ===" -ForegroundColor Green
 Write-Host "Current Script Root: $Global:ScriptRoot" -ForegroundColor Cyan
 
-# Define folder structure paths based on your actual structure
+# Define folder structure paths based on ACTUAL current structure
 $Global:Paths = @{
     Root        = $Global:ScriptRoot
-    MainForm    = Join-Path $Global:ScriptRoot "MainForm"
-    App         = Join-Path $Global:ScriptRoot "MainForm\App"
-    Forms       = Join-Path $Global:ScriptRoot "MainForm\App\Forms"
-    SubForms    = Join-Path $Global:ScriptRoot "MainForm\App\Forms\SubForm"
+    Forms       = $Global:ScriptRoot                # Forms are in root now
+    SubForms    = $Global:ScriptRoot                # SubForms are in root now  
     Resources   = Join-Path $Global:ScriptRoot "Resources"
     Config      = Join-Path $Global:ScriptRoot "Config"
     Logs        = Join-Path $Global:ScriptRoot "Logs"
@@ -28,7 +30,7 @@ function Get-ProjectPath {
         [string]$FileName,
         
         [Parameter(Mandatory=$false)]
-        [ValidateSet("Root", "MainForm", "App", "Forms", "SubForms", "Resources", "Config", "Logs", "Data")]
+        [ValidateSet("Root", "Forms", "SubForms", "Resources", "Config", "Logs", "Data")]
         [string]$Location = "Forms"
     )
     
@@ -137,20 +139,15 @@ catch {
 
 Write-Host "`n--- Loading Application Components ---" -ForegroundColor Cyan
 
-# Load components in correct order
+# Load components in correct order for CURRENT structure
 $loadSuccess = $true
 
-# 1. Load Global Variables and Functions first
-if (-not (Import-ProjectFile -FileName "Globals.ps1" -Location "Forms" -Description "Global Variables and Functions")) {
+# 1. Load Form Designer (it's in root now)
+if (-not (Import-ProjectFile -FileName "AI_Gen_Workflow_Wrapper.designer.ps1" -Location "Forms" -Description "Form Designer")) {
     $loadSuccess = $false
 }
 
-# 2. Load Form Designer
-if ($loadSuccess -and (-not (Import-ProjectFile -FileName "AI_Gen_Workflow_Wrapper.designer.ps1" -Location "Forms" -Description "Form Designer"))) {
-    $loadSuccess = $false
-}
-
-# 3. Load Core Functionality
+# 2. Load Core Functionality (it's in root now)
 if ($loadSuccess -and (-not (Import-ProjectFile -FileName "AI_Gen_Workflow_Wrapper.ps1" -Location "Forms" -Description "Core Application Logic"))) {
     $loadSuccess = $false
 }
@@ -160,31 +157,54 @@ if ($loadSuccess) {
     Write-Host "`n--- Starting Application ---" -ForegroundColor Cyan
     
     try {
-        # Initialize application components (if Initialize-Application function exists)
-        if (Get-Command Initialize-Application -ErrorAction SilentlyContinue) {
-            Initialize-Application
-            Write-Log "Application initialized successfully" -Level "INFO"
+        # Debug: Show all available form variables
+        Write-Host "`n--- Debug: Available Variables ---" -ForegroundColor Yellow
+        $allVars = Get-Variable | Where-Object { 
+            $_.Value -and 
+            ($_.Value.GetType().Name -like "*Form*" -or $_.Name -like "*Form*" -or $_.Name -like "*AI_Gen*")
         }
         
-        # Try to find the main form variable with different possible names
-        $formVariableNames = @('mainForm', 'MainForm', 'form', 'Form1', 'AI_Gen_Workflow_Wrapper')
-        $formFound = $false
-        
-        foreach ($varName in $formVariableNames) {
-            $formVar = Get-Variable -Name $varName -ErrorAction SilentlyContinue
-            if ($formVar -and $formVar.Value -and $formVar.Value.GetType().Name -like "*Form*") {
-                Write-Host "✓ Found main form: $varName" -ForegroundColor Green
-                Write-Log "Application started successfully" -Level "INFO"
-                
-                # Show the main form
-                [void]$formVar.Value.ShowDialog()
-                $formFound = $true
-                break
+        if ($allVars) {
+            foreach ($var in $allVars) {
+                Write-Host "  Variable: $($var.Name) = $($var.Value.GetType().Name)" -ForegroundColor Gray
             }
         }
         
-        if (-not $formFound) {
-            throw "Main form object not found. Form designer may not have loaded correctly. Expected variables: $($formVariableNames -join ', ')"
+        # Try the exact variable name from the designer file first
+        if (Get-Variable -Name "AI_Gen_Workflow_Wrapper" -ErrorAction SilentlyContinue) {
+            $mainFormVar = Get-Variable -Name "AI_Gen_Workflow_Wrapper"
+            if ($mainFormVar.Value -and $mainFormVar.Value.GetType().Name -like "*Form*") {
+                Write-Host "✓ Found main form: AI_Gen_Workflow_Wrapper" -ForegroundColor Green
+                Write-Log "Application started successfully" -Level "INFO"
+                
+                # Show the main form
+                [void]$mainFormVar.Value.ShowDialog()
+            }
+            else {
+                throw "Variable 'AI_Gen_Workflow_Wrapper' exists but is not a valid form object"
+            }
+        }
+        else {
+            # Fallback: try other common names
+            $formVariableNames = @('mainForm', 'MainForm', 'form', 'Form1')
+            $formFound = $false
+            
+            foreach ($varName in $formVariableNames) {
+                $formVar = Get-Variable -Name $varName -ErrorAction SilentlyContinue
+                if ($formVar -and $formVar.Value -and $formVar.Value.GetType().Name -like "*Form*") {
+                    Write-Host "✓ Found main form: $varName" -ForegroundColor Green
+                    Write-Log "Application started successfully" -Level "INFO"
+                    
+                    # Show the main form
+                    [void]$formVar.Value.ShowDialog()
+                    $formFound = $true
+                    break
+                }
+            }
+            
+            if (-not $formFound) {
+                throw "Main form variable not found. Expected 'AI_Gen_Workflow_Wrapper' or alternatives: $($formVariableNames -join ', ')"
+            }
         }
         
     }
