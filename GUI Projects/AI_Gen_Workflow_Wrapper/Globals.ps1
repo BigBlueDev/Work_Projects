@@ -510,6 +510,85 @@ function Add-ToRecentScripts {
 
 #endregion
 
+#region Simple Path Management Functions
+
+# Simple path helper functions that work with the Global:Paths
+function Get-AppDataPath {
+    param([string]$FileName)
+    $dataDir = if ($Global:Paths) { $Global:Paths.Data } else { Join-Path $PSScriptRoot "Data" }
+    return Join-Path $dataDir $FileName
+}
+
+function Get-AppConfigPath {
+    param([string]$FileName)
+    $configDir = if ($Global:Paths) { $Global:Paths.Config } else { Join-Path $PSScriptRoot "Data\Config" }
+    return Join-Path $configDir $FileName
+}
+
+function Get-AppLogPath {
+    param([string]$FileName)
+    $logDir = if ($Global:Paths) { $Global:Paths.Logs } else { Join-Path $PSScriptRoot "Data\Logs" }
+    return Join-Path $logDir $FileName
+}
+
+function Show-EditParameterDialog {
+    param(
+        [string]$ParameterName = "",
+        [string]$CurrentValue = "",
+        [string]$ParameterType = "String",
+        [bool]$IsRequired = $false,
+        [string]$Description = ""
+    )
+    
+    try {
+        # Load EditParam files directly from root
+        $rootDir = if ($Global:ScriptRoot) { $Global:ScriptRoot } else { $PSScriptRoot }
+        $designerPath = Join-Path $rootDir "EditParam.designer.ps1"
+        $logicPath = Join-Path $rootDir "EditParam.ps1"
+        
+        Write-Log "Loading EditParam form: Designer=$designerPath, Logic=$logicPath" -Level "DEBUG"
+        
+        if (Test-Path $designerPath) { . $designerPath }
+        if (Test-Path $logicPath) { . $logicPath }
+        
+        # Find the EditParam form variable
+        $possibleNames = @('EditParam', 'editParam', 'EditParamForm', 'formEditParam')
+        $editForm = $null
+        
+        foreach ($name in $possibleNames) {
+            $var = Get-Variable -Name $name -ErrorAction SilentlyContinue
+            if ($var -and $var.Value -and $var.Value.GetType().Name -like "*Form*") {
+                $editForm = $var.Value
+                break
+            }
+        }
+        
+        if ($editForm) {
+            # Set form properties if they exist
+            $formProperties = $editForm.PSObject.Properties.Name
+            
+            if ($formProperties -contains "ParameterName") { $editForm.ParameterName = $ParameterName }
+            if ($formProperties -contains "ParameterValue") { $editForm.ParameterValue = $CurrentValue }
+            if ($formProperties -contains "ParameterType") { $editForm.ParameterType = $ParameterType }
+            if ($formProperties -contains "IsRequired") { $editForm.IsRequired = $IsRequired }
+            if ($formProperties -contains "Description") { $editForm.Description = $Description }
+            
+            Write-Log "Showing EditParam dialog for parameter: $ParameterName" -Level "INFO"
+            return $editForm.ShowDialog()
+        }
+        else {
+            Write-Log "EditParam form not found. Tried: $($possibleNames -join ', ')" -Level "WARNING"
+            return [System.Windows.Forms.DialogResult]::Cancel
+        }
+        
+    } catch {
+        Write-Log "Error loading EditParam form: $($_.Exception.Message)" -Level "ERROR"
+        return [System.Windows.Forms.DialogResult]::Cancel
+    }
+}
+
+#endregion
+
 #region Enhanced UI Helper Functions
 
 function Update-ScriptsListView {

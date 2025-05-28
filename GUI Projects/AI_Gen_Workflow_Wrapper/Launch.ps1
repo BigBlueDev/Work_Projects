@@ -1,39 +1,50 @@
 # Launch.ps1
-# Simplified entry point for flat file structure
+# Simple, reliable entry point for AI Gen Workflow Wrapper
 
 # Load required assemblies
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Load the path manager
-$pathManagerScript = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Definition) "PathManager.ps1"
-if (-not (Test-Path $pathManagerScript)) {
-    throw "Critical Error: PathManager.ps1 not found at $pathManagerScript"
-}
-. $pathManagerScript
+# Get the script's root directory
+$Global:ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
+Set-Location -Path $Global:ScriptRoot
 
-# Initialize path management
-Initialize-AppPaths
+Write-Host "=== AI Gen Workflow Wrapper v1.0.0 ===" -ForegroundColor Green
+Write-Host "Root Directory: $Global:ScriptRoot" -ForegroundColor Cyan
 
-# Display application info
-$appInfo = Get-AppConfig -ConfigPath "ApplicationInfo"
-Write-Host "=== $($appInfo.Name) v$($appInfo.Version) ===" -ForegroundColor Green
-Write-Host "Root Directory: $(Get-AppPath -PathName 'Root')" -ForegroundColor Cyan
-
-# Validate and create directory structure
-Write-Host "`n--- Validating Directory Structure ---" -ForegroundColor Cyan
-$pathValidation = Test-AppPaths
-
-foreach ($validPath in $pathValidation.Valid) {
-    Write-Host "✓ $($validPath.Name): $($validPath.Path)" -ForegroundColor Green
-}
-
-foreach ($createdPath in $pathValidation.Created) {
-    Write-Host "➕ Created $($createdPath.Name): $($createdPath.Path)" -ForegroundColor Yellow
+# Define simple path structure
+$Global:Paths = @{
+    Root = $Global:ScriptRoot
+    Data = Join-Path $Global:ScriptRoot "Data"
+    Config = Join-Path $Global:ScriptRoot "Data\Config"
+    Logs = Join-Path $Global:ScriptRoot "Data\Logs"
+    Scripts = Join-Path $Global:ScriptRoot "Data\Scripts"
+    Exports = Join-Path $Global:ScriptRoot "Data\Exports"
+    Imports = Join-Path $Global:ScriptRoot "Data\Imports"
+    Backups = Join-Path $Global:ScriptRoot "Data\Backups"
+    Reports = Join-Path $Global:ScriptRoot "Data\Reports"
+    Temp = Join-Path $Global:ScriptRoot "Data\Temp"
+    Cache = Join-Path $Global:ScriptRoot "Data\Cache"
+    Resources = Join-Path $Global:ScriptRoot "Resources"
 }
 
-# Initialize logging
-$Global:LogFile = Get-AppFileFromPattern -PathName "Logs" -PatternName "LogFile"
+# Create required directories
+Write-Host "`n--- Creating Required Directories ---" -ForegroundColor Cyan
+foreach ($pathPair in $Global:Paths.GetEnumerator()) {
+    if (-not (Test-Path $pathPair.Value)) {
+        try {
+            New-Item -ItemType Directory -Path $pathPair.Value -Force | Out-Null
+            Write-Host "➕ Created: $($pathPair.Key) -> $($pathPair.Value)" -ForegroundColor Yellow
+        } catch {
+            Write-Warning "Failed to create directory: $($pathPair.Value) - $_"
+        }
+    } else {
+        Write-Host "✓ Exists: $($pathPair.Key)" -ForegroundColor Green
+    }
+}
+
+# Initialize simple logging
+$Global:LogFile = Join-Path $Global:Paths.Logs "application_$(Get-Date -Format 'yyyy-MM-dd').log"
 
 function Write-Log {
     param(
@@ -42,8 +53,7 @@ function Write-Log {
         [string]$Level = "INFO"
     )
     
-    $dateFormat = Get-AppConfig -ConfigPath "Logging.DateFormat" -DefaultValue "yyyy-MM-dd HH:mm:ss"
-    $timestamp = Get-Date -Format $dateFormat
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logEntry = "[$timestamp] [$Level] $Message"
     
     # File logging
@@ -66,14 +76,13 @@ Write-Log "Application initialization started" -Level "INFO"
 # Load application components directly from root
 Write-Host "`n--- Loading Application Components ---" -ForegroundColor Cyan
 
-function Import-RootFile {
+function Import-AppFile {
     param(
-        [string]$PatternName,
+        [string]$FileName,
         [string]$Description
     )
     
-    $fileName = Get-AppConfig -ConfigPath "FilePatterns.$PatternName"
-    $filePath = Get-AppFilePath -PathName "Root" -FileName $fileName -EnsureDirectory $false
+    $filePath = Join-Path $Global:ScriptRoot $FileName
     
     Write-Host "Loading $Description`: " -NoNewline -ForegroundColor Yellow
     Write-Host $filePath -ForegroundColor White
@@ -95,19 +104,41 @@ function Import-RootFile {
     }
 }
 
-# Load form components from root directory
+# Load the required files
 $loadSuccess = $true
-$loadSuccess = $loadSuccess -and (Import-RootFile -PatternName "MainFormDesigner" -Description "Form Designer")
-$loadSuccess = $loadSuccess -and (Import-RootFile -PatternName "MainFormLogic" -Description "Core Application Logic")
+
+# Load Globals first (if it exists)
+$globalsFile = Join-Path $Global:ScriptRoot "Globals.ps1"
+if (Test-Path $globalsFile) {
+    $loadSuccess = $loadSuccess -and (Import-AppFile -FileName "Globals.ps1" -Description "Global Functions")
+}
+
+# Load form components
+$loadSuccess = $loadSuccess -and (Import-AppFile -FileName "AI_Gen_Workflow_Wrapper.designer.ps1" -Description "Form Designer")
+$loadSuccess = $loadSuccess -and (Import-AppFile -FileName "AI_Gen_Workflow_Wrapper.ps1" -Description "Core Application Logic")
 
 # Start application
 if ($loadSuccess) {
     Write-Host "`n--- Starting Application ---" -ForegroundColor Cyan
     
     try {
-        # Enhanced form variable detection
+        # Enhanced form variable detection with debugging
         Write-Host "`n--- Searching for Form Variables ---" -ForegroundColor Yellow
         
+        # Show all variables that might be forms
+        $allVars = Get-Variable | Where-Object { 
+            $_.Value -and 
+            ($_.Value.GetType().Name -like "*Form*" -or $_.Name -like "*Form*" -or $_.Name -like "*AI_Gen*")
+        }
+        
+        if ($allVars) {
+            Write-Host "Found potential form variables:" -ForegroundColor Cyan
+            foreach ($var in $allVars) {
+                Write-Host "  - $($var.Name) = $($var.Value.GetType().Name)" -ForegroundColor Gray
+            }
+        }
+        
+        # Try common form variable names
         $formVariableNames = @(
             'AI_Gen_Workflow_Wrapper',
             'mainForm', 
@@ -118,42 +149,33 @@ if ($loadSuccess) {
         
         $formFound = $false
         foreach ($varName in $formVariableNames) {
+            Write-Host "Checking for variable: $varName" -ForegroundColor Gray
+            
             $formVar = Get-Variable -Name $varName -ErrorAction SilentlyContinue
             if ($formVar -and $formVar.Value -and $formVar.Value.GetType().Name -like "*Form*") {
                 Write-Host "✓ Found main form: $varName ($($formVar.Value.GetType().Name))" -ForegroundColor Green
                 Write-Log "Application started successfully with form: $varName" -Level "INFO"
                 
-                [void]$formVar.Value.ShowDialog()
+                # Show the main form
+                $result = $formVar.Value.ShowDialog()
+                Write-Log "Form closed with result: $result" -Level "INFO"
                 $formFound = $true
                 break
             }
         }
         
         if (-not $formFound) {
-            # Debug: Show all available variables
-            $allVars = Get-Variable | Where-Object { 
-                $_.Value -and 
-                ($_.Value.GetType().Name -like "*Form*" -or $_.Name -like "*Form*" -or $_.Name -like "*AI_Gen*")
-            }
+            # Try to find ANY form variable
+            $anyForm = $allVars | Where-Object { $_.Value.GetType().Name -like "*Form*" } | Select-Object -First 1
             
-            if ($allVars) {
-                Write-Host "Available variables:" -ForegroundColor Cyan
-                foreach ($var in $allVars) {
-                    Write-Host "  - $($var.Name) = $($var.Value.GetType().Name)" -ForegroundColor Gray
-                }
-                
-                # Try the first form we find
-                $firstForm = $allVars | Where-Object { $_.Value.GetType().Name -like "*Form*" } | Select-Object -First 1
-                if ($firstForm) {
-                    Write-Host "✓ Using discovered form: $($firstForm.Name)" -ForegroundColor Yellow
-                    [void]$firstForm.Value.ShowDialog()
-                    $formFound = $true
-                }
+            if ($anyForm) {
+                Write-Host "✓ Using discovered form: $($anyForm.Name) ($($anyForm.Value.GetType().Name))" -ForegroundColor Yellow
+                Write-Log "Using discovered form: $($anyForm.Name)" -Level "INFO"
+                $anyForm.Value.ShowDialog()
+                $formFound = $true
+            } else {
+                throw "No form variables found. The form designer may not have created the form properly."
             }
-        }
-        
-        if (-not $formFound) {
-            throw "No form variables found. The form designer may not have loaded correctly."
         }
         
     }
@@ -172,6 +194,7 @@ if ($loadSuccess) {
     }
 } else {
     Write-Error "Application failed to load required components"
+    Write-Log "Application failed to load required components" -Level "ERROR"
     exit 1
 }
 
