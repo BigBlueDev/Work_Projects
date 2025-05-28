@@ -1,4 +1,158 @@
+$btnLoadConnection_Click = {
+    try {
+        Write-Log "Loading connection settings..." -Level "INFO"
+        Load-ConnectionSettings
+        [System.Windows.Forms.MessageBox]::Show(
+            "Connection settings loaded successfully!",
+            "Settings Loaded",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+    } catch {
+        Write-Log "Error loading connection settings: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error loading connection settings: $($_.Exception.Message)",
+            "Load Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
 
+$btnSaveConnection_Click = {
+    try {
+        Write-Log "Saving connection settings..." -Level "INFO"
+        Save-ConnectionSettings
+        [System.Windows.Forms.MessageBox]::Show(
+            "Connection settings saved successfully!",
+            "Settings Saved",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+    } catch {
+        Write-Log "Error saving connection settings: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error saving connection settings: $($_.Exception.Message)",
+            "Save Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnTestTargetConnection_Click = {
+    try {
+        Write-Log "Test Target Connection button clicked" -Level "DEBUG"
+        
+        # Get target server name from text box (adjust the control name as needed)
+        $serverName = ""
+        
+        # Try to get server name from possible target text boxes
+        if ($script:txtTargetServer -and $script:txtTargetServer.Text) {
+            $serverName = $script:txtTargetServer.Text.Trim()
+        } elseif ($script:txtTargetVCenter -and $script:txtTargetVCenter.Text) {
+            $serverName = $script:txtTargetVCenter.Text.Trim()
+        } elseif ($script:targetServerTextBox -and $script:targetServerTextBox.Text) {
+            $serverName = $script:targetServerTextBox.Text.Trim()
+        } else {
+            # Check all text boxes to find the target server field
+            $possibleTargetControls = @(
+                'txtTargetServer', 'txtTargetVCenter', 'txtTarget', 'targetServerTextBox',
+                'txtDestinationServer', 'txtDestVCenter', 'txtDest'
+            )
+            
+            foreach ($controlName in $possibleTargetControls) {
+                $control = Get-Variable -Name $controlName -Scope Script -ErrorAction SilentlyContinue
+                if ($control -and $control.Value -and $control.Value.Text) {
+                    $serverName = $control.Value.Text.Trim()
+                    Write-Log "Found target server in control: $controlName" -Level "DEBUG"
+                    break
+                }
+            }
+        }
+        
+        if ([string]::IsNullOrWhiteSpace($serverName)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please enter the target vCenter server name or IP address first.",
+                "No Target Server Specified",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            return
+        }
+        
+        # Perform the connection test
+        Test-ConnectionWithFeedback -ServerName $serverName -ConnectionType "Target vCenter" -Button $btnTestTargetConnection
+        
+    } catch {
+        $errorMessage = "Error in Test Target Connection handler: $($_.Exception.Message)"
+        Write-Log $errorMessage -Level "ERROR"
+        
+        [System.Windows.Forms.MessageBox]::Show(
+            $errorMessage,
+            "Test Target Connection Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnTestSourceConnection_Click = {
+        try {
+        Write-Log "Test Source Connection button clicked" -Level "DEBUG"
+        
+        # Get source server name from text box
+        $serverName = ""
+        
+        # Try to get server name from possible source text boxes
+        if ($script:txtSourceServer -and $script:txtSourceServer.Text) {
+            $serverName = $script:txtSourceServer.Text.Trim()
+        } elseif ($script:txtSourceVCenter -and $script:txtSourceVCenter.Text) {
+            $serverName = $script:txtSourceVCenter.Text.Trim()
+        } elseif ($script:sourceServerTextBox -and $script:sourceServerTextBox.Text) {
+            $serverName = $script:sourceServerTextBox.Text.Trim()
+        } else {
+            # Check all text boxes to find the source server field
+            $possibleSourceControls = @(
+                'txtSourceServer', 'txtSourceVCenter', 'txtSource', 'sourceServerTextBox',
+                'txtOriginServer', 'txtSrcVCenter', 'txtSrc'
+            )
+            
+            foreach ($controlName in $possibleSourceControls) {
+                $control = Get-Variable -Name $controlName -Scope Script -ErrorAction SilentlyContinue
+                if ($control -and $control.Value -and $control.Value.Text) {
+                    $serverName = $control.Value.Text.Trim()
+                    Write-Log "Found source server in control: $controlName" -Level "DEBUG"
+                    break
+                }
+            }
+        }
+        
+        if ([string]::IsNullOrWhiteSpace($serverName)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please enter the source vCenter server name or IP address first.",
+                "No Source Server Specified",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            return
+        }
+        
+        # Perform the connection test
+        Test-ConnectionWithFeedback -ServerName $serverName -ConnectionType "Source vCenter" -Button $btnTestSourceConnection
+        
+    } catch {
+        $errorMessage = "Error in Test Source Connection handler: $($_.Exception.Message)"
+        Write-Log $errorMessage -Level "ERROR"
+        
+        [System.Windows.Forms.MessageBox]::Show(
+            $errorMessage,
+            "Test Source Connection Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
 
 
 <#
@@ -760,163 +914,6 @@ $lvParameters_SelectedIndexChanged = {
 
 #region Connection Management
 
-# Test Source Connection Button Click Event
-$btnTestSourceConnection_Click = {
-    try {
-        Write-Log "Test Source Connection button clicked" -Level "DEBUG"
-        
-        # Get source server name from text box
-        $serverName = ""
-        
-        # Try to get server name from possible source text boxes
-        if ($script:txtSourceServer -and $script:txtSourceServer.Text) {
-            $serverName = $script:txtSourceServer.Text.Trim()
-        } elseif ($script:txtSourceVCenter -and $script:txtSourceVCenter.Text) {
-            $serverName = $script:txtSourceVCenter.Text.Trim()
-        } elseif ($script:sourceServerTextBox -and $script:sourceServerTextBox.Text) {
-            $serverName = $script:sourceServerTextBox.Text.Trim()
-        } else {
-            # Check all text boxes to find the source server field
-            $possibleSourceControls = @(
-                'txtSourceServer', 'txtSourceVCenter', 'txtSource', 'sourceServerTextBox',
-                'txtOriginServer', 'txtSrcVCenter', 'txtSrc'
-            )
-            
-            foreach ($controlName in $possibleSourceControls) {
-                $control = Get-Variable -Name $controlName -Scope Script -ErrorAction SilentlyContinue
-                if ($control -and $control.Value -and $control.Value.Text) {
-                    $serverName = $control.Value.Text.Trim()
-                    Write-Log "Found source server in control: $controlName" -Level "DEBUG"
-                    break
-                }
-            }
-        }
-        
-        if ([string]::IsNullOrWhiteSpace($serverName)) {
-            [System.Windows.Forms.MessageBox]::Show(
-                "Please enter the source vCenter server name or IP address first.",
-                "No Source Server Specified",
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            )
-            return
-        }
-        
-        # Perform the connection test
-        Test-ConnectionWithFeedback -ServerName $serverName -ConnectionType "Source vCenter" -Button $btnTestSourceConnection
-        
-    } catch {
-        $errorMessage = "Error in Test Source Connection handler: $($_.Exception.Message)"
-        Write-Log $errorMessage -Level "ERROR"
-        
-        [System.Windows.Forms.MessageBox]::Show(
-            $errorMessage,
-            "Test Source Connection Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-    }
-}
-
-# Test Target Connection Button Click Event
-$btnTestTargetConnection_Click = {
-    try {
-        Write-Log "Test Target Connection button clicked" -Level "DEBUG"
-        
-        # Get target server name from text box (adjust the control name as needed)
-        $serverName = ""
-        
-        # Try to get server name from possible target text boxes
-        if ($script:txtTargetServer -and $script:txtTargetServer.Text) {
-            $serverName = $script:txtTargetServer.Text.Trim()
-        } elseif ($script:txtTargetVCenter -and $script:txtTargetVCenter.Text) {
-            $serverName = $script:txtTargetVCenter.Text.Trim()
-        } elseif ($script:targetServerTextBox -and $script:targetServerTextBox.Text) {
-            $serverName = $script:targetServerTextBox.Text.Trim()
-        } else {
-            # Check all text boxes to find the target server field
-            $possibleTargetControls = @(
-                'txtTargetServer', 'txtTargetVCenter', 'txtTarget', 'targetServerTextBox',
-                'txtDestinationServer', 'txtDestVCenter', 'txtDest'
-            )
-            
-            foreach ($controlName in $possibleTargetControls) {
-                $control = Get-Variable -Name $controlName -Scope Script -ErrorAction SilentlyContinue
-                if ($control -and $control.Value -and $control.Value.Text) {
-                    $serverName = $control.Value.Text.Trim()
-                    Write-Log "Found target server in control: $controlName" -Level "DEBUG"
-                    break
-                }
-            }
-        }
-        
-        if ([string]::IsNullOrWhiteSpace($serverName)) {
-            [System.Windows.Forms.MessageBox]::Show(
-                "Please enter the target vCenter server name or IP address first.",
-                "No Target Server Specified",
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            )
-            return
-        }
-        
-        # Perform the connection test
-        Test-ConnectionWithFeedback -ServerName $serverName -ConnectionType "Target vCenter" -Button $btnTestTargetConnection
-        
-    } catch {
-        $errorMessage = "Error in Test Target Connection handler: $($_.Exception.Message)"
-        Write-Log $errorMessage -Level "ERROR"
-        
-        [System.Windows.Forms.MessageBox]::Show(
-            $errorMessage,
-            "Test Target Connection Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-    }
-}
-
-$btnSaveConnection_Click = {
-    try {
-        Write-Log "Saving connection settings..." -Level "INFO"
-        Save-ConnectionSettings
-        [System.Windows.Forms.MessageBox]::Show(
-            "Connection settings saved successfully!",
-            "Settings Saved",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        )
-    } catch {
-        Write-Log "Error saving connection settings: $($_.Exception.Message)" -Level "ERROR"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Error saving connection settings: $($_.Exception.Message)",
-            "Save Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-    }
-}
-
-$btnLoadConnection_Click = {
-    try {
-        Write-Log "Loading connection settings..." -Level "INFO"
-        Load-ConnectionSettings
-        [System.Windows.Forms.MessageBox]::Show(
-            "Connection settings loaded successfully!",
-            "Settings Loaded",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        )
-    } catch {
-        Write-Log "Error loading connection settings: $($_.Exception.Message)" -Level "ERROR"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Error loading connection settings: $($_.Exception.Message)",
-            "Load Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-    }
-}
 
 #region Fixed Connection Functions
 

@@ -1,517 +1,1111 @@
 # Globals.ps1
-# Global variables and functions for AI Gen Workflow Wrapper
-# Simplified version with syntax fixes
+# Global functions and event handlers for AI Gen Workflow Wrapper
 
-#region Application State Variables
+#region Global Variables and Configuration
+$Global:AppConfig = @{
+    Version = "1.0.0"
+    Name = "vCenter Migration Workflow Manager"
+    LastSaved = $null
+    ConnectionSettings = @{
+        Source = @{ Server = ""; Username = ""; Password = ""; Connected = $false }
+        Target = @{ Server = ""; Username = ""; Password = ""; Connected = $false }
+        UseCurrentCredentials = $false
+    }
+    Scripts = @()
+    ExecutionSettings = @{
+        StopOnError = $true
+        SkipConfirmation = $false
+        Timeout = 300
+        MaxJobs = 1
+    }
+    IsExecuting = $false
+    CurrentJob = $null
+}
 
-# Core application state
-$script:Scripts = @()
-$script:Parameters = @()
-$script:SelectedScript = $null
-$script:SelectedParameter = $null
-$script:Config = @{}
-
-# Form control references (set when forms are loaded)
-$script:MainForm = $null
-$script:ScriptsListView = $null
-$script:ParametersListView = $null
-$script:SelectedScriptLabel = $null
-$script:ExecuteButton = $null
-$script:AddScriptButton = $null
-$script:RemoveScriptButton = $null
-$script:EditParameterButton = $null
-
-# Application runtime state
-$script:BrowsingScript = $false
-$script:EventHandlersRegistered = $false
-$script:ApplicationStartTime = Get-Date
-
+$Global:RecentScripts = @()
+$Global:MaxRecentScripts = 10
 #endregion
 
-#region Simple Path Management Functions
-
-function Get-AppDataPath {
-    param([string]$FileName)
-    $dataDir = if ($Global:Paths) { $Global:Paths.Data } else { Join-Path $PSScriptRoot "Data" }
-    if (-not (Test-Path $dataDir)) {
-        New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
-    }
-    return Join-Path $dataDir $FileName
-}
-
-function Get-AppConfigPath {
-    param([string]$FileName)
-    $configDir = if ($Global:Paths) { $Global:Paths.Config } else { Join-Path $PSScriptRoot "Data\Config" }
-    if (-not (Test-Path $configDir)) {
-        New-Item -ItemType Directory -Path $configDir -Force | Out-Null
-    }
-    return Join-Path $configDir $FileName
-}
-
-function Get-AppLogPath {
-    param([string]$FileName)
-    $logDir = if ($Global:Paths) { $Global:Paths.Logs } else { Join-Path $PSScriptRoot "Data\Logs" }
-    if (-not (Test-Path $logDir)) {
-        New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-    }
-    return Join-Path $logDir $FileName
-}
-
-#endregion
-
-#region Enhanced Logging System
-
+#region Logging Functions
 function Write-Log {
     param(
-        [Parameter(Mandatory = $true)]
         [string]$Message,
-        
-        [Parameter(Mandatory = $false)]
         [ValidateSet("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")]
         [string]$Level = "INFO",
-        
-        [Parameter(Mandatory = $false)]
-        [string]$Source = "Application"
+        [switch]$UpdateUI
     )
     
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "[$timestamp] [$Level] $Message"
+    
+    # File logging
     try {
-        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-        $logEntry = "[$timestamp] [$Level] [$Source] $Message"
-        
-        # File logging if Global:LogFile is available
-        if ($Global:LogFile) {
-            try {
-                Add-Content -Path $Global:LogFile -Value $logEntry -Encoding UTF8 -ErrorAction SilentlyContinue
-            } catch {
-                # Silent fail for file logging issues
-            }
-        }
-        
-        # Console logging with color coding
-        switch ($Level) {
-            "DEBUG" { Write-Host $logEntry -ForegroundColor Gray }
-            "INFO" { Write-Host $logEntry -ForegroundColor White }
-            "WARNING" { Write-Host $logEntry -ForegroundColor Yellow }
-            "ERROR" { Write-Host $logEntry -ForegroundColor Red }
-            "CRITICAL" { Write-Host $logEntry -ForegroundColor Magenta }
-        }
-    } catch {
-        # Ultimate fallback
-        Write-Warning "Logging system error: $($_.Exception.Message)"
-        Write-Host "[$Level] $Message" -ForegroundColor Red
+        Add-Content -Path $Global:LogFile -Value $logEntry -ErrorAction SilentlyContinue
+    } catch { }
+    
+    # Console logging
+    switch ($Level) {
+        "DEBUG" { Write-Host $logEntry -ForegroundColor Gray }
+        "INFO" { Write-Host $logEntry -ForegroundColor White }
+        "WARNING" { Write-Host $logEntry -ForegroundColor Yellow }
+        "ERROR" { Write-Host $logEntry -ForegroundColor Red }
+        "CRITICAL" { Write-Host $logEntry -ForegroundColor Magenta }
+    }
+    
+    # UI logging
+    if ($UpdateUI -and $Global:MainForm -and $Global:MainForm.logTextBox) {
+        try {
+            $Global:MainForm.logTextBox.AppendText("$logEntry`r`n")
+            $Global:MainForm.logTextBox.ScrollToCaret()
+        } catch { }
     }
 }
 
+function Update-StatusStrip {
+    param([string]$Text)
+    
+    try {
+        if ($Global:MainForm -and $Global:MainForm.statusStripLabel) {
+            $Global:MainForm.statusStripLabel.Text = $Text
+        }
+    } catch { }
+}
 #endregion
 
 #region Configuration Management
-
-function Initialize-DefaultConfiguration {
-    return @{
-        Application = @{
-            Name = "AI Gen Workflow Wrapper"
-            Version = "1.0.0"
-            LogLevel = "INFO"
-            AutoSave = $true
-        }
-        UI = @{
-            WindowWidth = 800
-            WindowHeight = 600
-            Theme = "Default"
-        }
-        Scripts = @{
-            DefaultDirectory = if ($Global:ScriptRoot) { $Global:ScriptRoot } else { $PSScriptRoot }
-            AllowedExtensions = @(".ps1", ".bat", ".cmd")
-        }
-        Paths = @{
-            ConfigDirectory = Get-AppConfigPath -FileName ""
-            LogDirectory = Get-AppLogPath -FileName ""
-            DataDirectory = Get-AppDataPath -FileName ""
-        }
-    }
-}
-
-function Save-Configuration {
-    param(
-        [Parameter(Mandatory = $false)]
-        [hashtable]$Config = $script:Config
-    )
+function Save-AppConfig {
+    param([string]$FilePath)
     
     try {
-        $configFile = Get-AppConfigPath -FileName "config.json"
-        Write-Log "Saving configuration to: $configFile" -Level "DEBUG"
-        
-        $jsonConfig = $Config | ConvertTo-Json -Depth 10
-        Set-Content -Path $configFile -Value $jsonConfig -Encoding UTF8
-        
-        Write-Log "Configuration saved successfully" -Level "INFO"
-        
-    } catch {
-        Write-Log "Error saving configuration: $($_.Exception.Message)" -Level "ERROR"
-    }
-}
-
-function Load-Configuration {
-    try {
-        $configFile = Get-AppConfigPath -FileName "config.json"
-        Write-Log "Loading configuration from: $configFile" -Level "DEBUG"
-        
-        if (Test-Path -Path $configFile) {
-            $jsonContent = Get-Content -Path $configFile -Raw
-            $script:Config = $jsonContent | ConvertFrom-Json -AsHashtable
-            Write-Log "Configuration loaded successfully" -Level "INFO"
-        } else {
-            Write-Log "Configuration file not found, initializing defaults" -Level "INFO"
-            $script:Config = Initialize-DefaultConfiguration
-            Save-Configuration -Config $script:Config
+        if (-not $FilePath) {
+            $FilePath = Join-Path $Global:Paths.Config "app_config.json"
         }
         
-        return $script:Config
+        $Global:AppConfig.LastSaved = Get-Date
+        $configJson = $Global:AppConfig | ConvertTo-Json -Depth 5
+        Set-Content -Path $FilePath -Value $configJson -Force
         
+        Write-Log "Configuration saved to: $FilePath" -Level "INFO" -UpdateUI
+        Update-StatusStrip "Configuration saved"
+        return $true
     } catch {
-        Write-Log "Error loading configuration: $($_.Exception.Message)" -Level "ERROR"
-        Write-Log "Using default configuration" -Level "INFO"
-        $script:Config = Initialize-DefaultConfiguration
-        return $script:Config
+        Write-Log "Failed to save configuration: $_" -Level "ERROR" -UpdateUI
+        return $false
     }
 }
 
+function Load-AppConfig {
+    param([string]$FilePath)
+    
+    try {
+        if (-not $FilePath) {
+            $FilePath = Join-Path $Global:Paths.Config "app_config.json"
+        }
+        
+        if (Test-Path $FilePath) {
+            $configJson = Get-Content -Path $FilePath -Raw
+            $loadedConfig = $configJson | ConvertFrom-Json
+            
+            # Merge with current config
+            $Global:AppConfig.ConnectionSettings = $loadedConfig.ConnectionSettings
+            $Global:AppConfig.Scripts = $loadedConfig.Scripts
+            $Global:AppConfig.ExecutionSettings = $loadedConfig.ExecutionSettings
+            
+            Write-Log "Configuration loaded from: $FilePath" -Level "INFO" -UpdateUI
+            Update-StatusStrip "Configuration loaded"
+            
+            # Update UI with loaded values
+            Update-UIFromConfig
+            return $true
+        }
+    } catch {
+        Write-Log "Failed to load configuration: $_" -Level "ERROR" -UpdateUI
+        return $false
+    }
+    return $false
+}
+
+function Update-UIFromConfig {
+    try {
+        if (-not $Global:MainForm) { return }
+        
+        # Update connection settings
+        if ($Global:MainForm.txtSourceServer) {
+            $Global:MainForm.txtSourceServer.Text = $Global:AppConfig.ConnectionSettings.Source.Server
+        }
+        if ($Global:MainForm.txtSourceUsername) {
+            $Global:MainForm.txtSourceUsername.Text = $Global:AppConfig.ConnectionSettings.Source.Username
+        }
+        if ($Global:MainForm.txtTargetServer) {
+            $Global:MainForm.txtTargetServer.Text = $Global:AppConfig.ConnectionSettings.Target.Server
+        }
+        if ($Global:MainForm.txtTargetUsername) {
+            $Global:MainForm.txtTargetUsername.Text = $Global:AppConfig.ConnectionSettings.Target.Username
+        }
+        if ($Global:MainForm.chkUseCurrentCredentials) {
+            $Global:MainForm.chkUseCurrentCredentials.Checked = $Global:AppConfig.ConnectionSettings.UseCurrentCredentials
+        }
+        
+        # Update execution settings
+        if ($Global:MainForm.chkStopOnError) {
+            $Global:MainForm.chkStopOnError.Checked = $Global:AppConfig.ExecutionSettings.StopOnError
+        }
+        if ($Global:MainForm.chkSkipConfirmation) {
+            $Global:MainForm.chkSkipConfirmation.Checked = $Global:AppConfig.ExecutionSettings.SkipConfirmation
+        }
+        if ($Global:MainForm.numTimeout) {
+            $Global:MainForm.numTimeout.Value = $Global:AppConfig.ExecutionSettings.Timeout
+        }
+        if ($Global:MainForm.numMaxJobs) {
+            $Global:MainForm.numMaxJobs.Value = $Global:AppConfig.ExecutionSettings.MaxJobs
+        }
+        
+        # Update scripts list
+        Update-ScriptsList
+        
+    } catch {
+        Write-Log "Error updating UI from config: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+function Update-ConfigFromUI {
+    try {
+        if (-not $Global:MainForm) { return }
+        
+        # Update connection settings
+        if ($Global:MainForm.txtSourceServer) {
+            $Global:AppConfig.ConnectionSettings.Source.Server = $Global:MainForm.txtSourceServer.Text
+        }
+        if ($Global:MainForm.txtSourceUsername) {
+            $Global:AppConfig.ConnectionSettings.Source.Username = $Global:MainForm.txtSourceUsername.Text
+        }
+        if ($Global:MainForm.txtTargetServer) {
+            $Global:AppConfig.ConnectionSettings.Target.Server = $Global:MainForm.txtTargetServer.Text
+        }
+        if ($Global:MainForm.txtTargetUsername) {
+            $Global:AppConfig.ConnectionSettings.Target.Username = $Global:MainForm.txtTargetUsername.Text
+        }
+        if ($Global:MainForm.chkUseCurrentCredentials) {
+            $Global:AppConfig.ConnectionSettings.UseCurrentCredentials = $Global:MainForm.chkUseCurrentCredentials.Checked
+        }
+        
+        # Update execution settings
+        if ($Global:MainForm.chkStopOnError) {
+            $Global:AppConfig.ExecutionSettings.StopOnError = $Global:MainForm.chkStopOnError.Checked
+        }
+        if ($Global:MainForm.chkSkipConfirmation) {
+            $Global:AppConfig.ExecutionSettings.SkipConfirmation = $Global:MainForm.chkSkipConfirmation.Checked
+        }
+        if ($Global:MainForm.numTimeout) {
+            $Global:AppConfig.ExecutionSettings.Timeout = $Global:MainForm.numTimeout.Value
+        }
+        if ($Global:MainForm.numMaxJobs) {
+            $Global:AppConfig.ExecutionSettings.MaxJobs = $Global:MainForm.numMaxJobs.Value
+        }
+        
+    } catch {
+        Write-Log "Error updating config from UI: $_" -Level "ERROR" -UpdateUI
+    }
+}
 #endregion
 
-#region Script Management Functions
-
-function Add-ScriptToCollection {
+#region Script Management
+function Add-ScriptToList {
     param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path,
-        
-        [Parameter(Mandatory = $false)]
-        [string]$Name,
-        
-        [Parameter(Mandatory = $false)]
-        [string]$Description = "",
-        
-        [Parameter(Mandatory = $false)]
+        [string]$ScriptPath,
+        [string]$Description,
+        [bool]$Enabled = $true,
         [hashtable]$Parameters = @{}
     )
     
+    $script = @{
+        Id = [System.Guid]::NewGuid().ToString()
+        Path = $ScriptPath
+        Description = $Description
+        Enabled = $Enabled
+        Parameters = $Parameters
+        LastModified = (Get-Item $ScriptPath -ErrorAction SilentlyContinue).LastWriteTime
+    }
+    
+    $Global:AppConfig.Scripts += $script
+    Update-ScriptsList
+    Write-Log "Script added: $ScriptPath" -Level "INFO" -UpdateUI
+}
+
+function Remove-ScriptFromList {
+    param([string]$ScriptId)
+    
+    $Global:AppConfig.Scripts = $Global:AppConfig.Scripts | Where-Object { $_.Id -ne $ScriptId }
+    Update-ScriptsList
+    Write-Log "Script removed: $ScriptId" -Level "INFO" -UpdateUI
+}
+
+function Update-ScriptsList {
     try {
-        if (-not (Test-Path -Path $Path)) {
-            throw "Script file not found: $Path"
+        if (-not $Global:MainForm.lvScripts) { return }
+        
+        $Global:MainForm.lvScripts.Items.Clear()
+        
+        # Add columns if not present
+        if ($Global:MainForm.lvScripts.Columns.Count -eq 0) {
+            $Global:MainForm.lvScripts.Columns.Add("Script", 200) | Out-Null
+            $Global:MainForm.lvScripts.Columns.Add("Description", 150) | Out-Null
+            $Global:MainForm.lvScripts.Columns.Add("Enabled", 60) | Out-Null
+            $Global:MainForm.lvScripts.Columns.Add("Status", 80) | Out-Null
         }
         
-        # Generate name if not provided
-        if (-not $Name) {
-            $Name = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+        foreach ($script in $Global:AppConfig.Scripts) {
+            $item = New-Object System.Windows.Forms.ListViewItem
+            $item.Text = Split-Path $script.Path -Leaf
+            $item.SubItems.Add($script.Description) | Out-Null
+            $item.SubItems.Add(if ($script.Enabled) { "Yes" } else { "No" }) | Out-Null
+            
+            # Check script status
+            $status = if (Test-Path $script.Path) { "Found" } else { "Missing" }
+            $item.SubItems.Add($status) | Out-Null
+            
+            # Color coding
+            if (-not $script.Enabled) {
+                $item.ForeColor = [System.Drawing.Color]::Gray
+            } elseif ($status -eq "Missing") {
+                $item.ForeColor = [System.Drawing.Color]::Red
+            } else {
+                $item.ForeColor = [System.Drawing.Color]::Black
+            }
+            
+            $item.Tag = $script.Id
+            $Global:MainForm.lvScripts.Items.Add($item) | Out-Null
         }
-        
-        # Check for duplicates
-        $existingScript = $script:Scripts | Where-Object { $_.Path -eq $Path }
-        if ($existingScript) {
-            throw "Script already exists: $Path"
-        }
-        
-        # Create script object
-        $scriptObject = [PSCustomObject]@{
-            Id = [guid]::NewGuid().ToString()
-            Name = $Name
-            Path = $Path
-            Description = $Description
-            Parameters = $Parameters
-            DateAdded = Get-Date
-            LastModified = (Get-Item $Path).LastWriteTime
-            ExecutionCount = 0
-            LastExecuted = $null
-            LastResult = $null
-        }
-        
-        # Add to collection
-        $script:Scripts += $scriptObject
-        
-        Write-Log "Added script: $Name ($Path)" -Level "INFO"
-        return $scriptObject
         
     } catch {
-        Write-Log "Error adding script: $($_.Exception.Message)" -Level "ERROR"
-        throw
+        Write-Log "Error updating scripts list: $_" -Level "ERROR" -UpdateUI
     }
 }
 
-function Get-ScriptParameters {
+function Get-SelectedScript {
+    try {
+        if ($Global:MainForm.lvScripts.SelectedItems.Count -gt 0) {
+            $selectedId = $Global:MainForm.lvScripts.SelectedItems[0].Tag
+            return $Global:AppConfig.Scripts | Where-Object { $_.Id -eq $selectedId }
+        }
+    } catch { }
+    return $null
+}
+#endregion
+
+#region Connection Event Handlers
+$btnTestSourceConnection_Click = {
+    try {
+        Write-Log "Testing source vCenter connection..." -Level "INFO" -UpdateUI
+        Update-StatusStrip "Testing source connection..."
+        
+        $server = $Global:MainForm.txtSourceServer.Text
+        $username = $Global:MainForm.txtSourceUsername.Text
+        $password = $Global:MainForm.txtSourcePassword.Text
+        
+        if ([string]::IsNullOrWhiteSpace($server)) {
+            [System.Windows.Forms.MessageBox]::Show("Please enter a server address.", "Missing Information", "OK", "Warning")
+            return
+        }
+        
+        # Simulate connection test (replace with actual vCenter connection logic)
+        Start-Sleep -Seconds 2
+        
+        $Global:AppConfig.ConnectionSettings.Source.Connected = $true
+        [System.Windows.Forms.MessageBox]::Show("Successfully connected to source vCenter: $server", "Connection Successful", "OK", "Information")
+        Write-Log "Source vCenter connection successful: $server" -Level "INFO" -UpdateUI
+        Update-StatusStrip "Source connection successful"
+        
+    } catch {
+        $Global:AppConfig.ConnectionSettings.Source.Connected = $false
+        [System.Windows.Forms.MessageBox]::Show("Failed to connect to source vCenter: $_", "Connection Failed", "OK", "Error")
+        Write-Log "Source vCenter connection failed: $_" -Level "ERROR" -UpdateUI
+        Update-StatusStrip "Source connection failed"
+    }
+}
+
+$btnTestTargetConnection_Click = {
+    try {
+        Write-Log "Testing target vCenter connection..." -Level "INFO" -UpdateUI
+        Update-StatusStrip "Testing target connection..."
+        
+        $server = $Global:MainForm.txtTargetServer.Text
+        $username = $Global:MainForm.txtTargetUsername.Text
+        $password = $Global:MainForm.txtTargetPassword.Text
+        
+        if ([string]::IsNullOrWhiteSpace($server)) {
+            [System.Windows.Forms.MessageBox]::Show("Please enter a server address.", "Missing Information", "OK", "Warning")
+            return
+        }
+        
+        # Simulate connection test (replace with actual vCenter connection logic)
+        Start-Sleep -Seconds 2
+        
+        $Global:AppConfig.ConnectionSettings.Target.Connected = $true
+        [System.Windows.Forms.MessageBox]::Show("Successfully connected to target vCenter: $server", "Connection Successful", "OK", "Information")
+        Write-Log "Target vCenter connection successful: $server" -Level "INFO" -UpdateUI
+        Update-StatusStrip "Target connection successful"
+        
+    } catch {
+        $Global:AppConfig.ConnectionSettings.Target.Connected = $false
+        [System.Windows.Forms.MessageBox]::Show("Failed to connect to target vCenter: $_", "Connection Failed", "OK", "Error")
+        Write-Log "Target vCenter connection failed: $_" -Level "ERROR" -UpdateUI
+        Update-StatusStrip "Target connection failed"
+    }
+}
+
+$btnSaveConnection_Click = {
+    try {
+        Update-ConfigFromUI
+        $filePath = Join-Path $Global:Paths.Config "connection_settings.json"
+        
+        $connectionSettings = $Global:AppConfig.ConnectionSettings
+        $connectionJson = $connectionSettings | ConvertTo-Json -Depth 3
+        Set-Content -Path $filePath -Value $connectionJson -Force
+        
+        [System.Windows.Forms.MessageBox]::Show("Connection settings saved successfully.", "Settings Saved", "OK", "Information")
+        Write-Log "Connection settings saved to: $filePath" -Level "INFO" -UpdateUI
+        Update-StatusStrip "Connection settings saved"
+        
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Failed to save connection settings: $_", "Save Failed", "OK", "Error")
+        Write-Log "Failed to save connection settings: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+$btnLoadConnection_Click = {
+    try {
+        $filePath = Join-Path $Global:Paths.Config "connection_settings.json"
+        
+        if (Test-Path $filePath) {
+            $connectionJson = Get-Content -Path $filePath -Raw
+            $connectionSettings = $connectionJson | ConvertFrom-Json
+            $Global:AppConfig.ConnectionSettings = $connectionSettings
+            
+            Update-UIFromConfig
+            
+            [System.Windows.Forms.MessageBox]::Show("Connection settings loaded successfully.", "Settings Loaded", "OK", "Information")
+            Write-Log "Connection settings loaded from: $filePath" -Level "INFO" -UpdateUI
+            Update-StatusStrip "Connection settings loaded"
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("No saved connection settings found.", "No Settings", "OK", "Information")
+        }
+        
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Failed to load connection settings: $_", "Load Failed", "OK", "Error")
+        Write-Log "Failed to load connection settings: $_" -Level "ERROR" -UpdateUI
+    }
+}
+#endregion
+
+#region Script Management Event Handlers
+$btnAddScript_Click = {
+    try {
+        $openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+        $openFileDialog.Title = "Select PowerShell Script"
+        $openFileDialog.Filter = "PowerShell Scripts (*.ps1)|*.ps1|All Files (*.*)|*.*"
+        $openFileDialog.InitialDirectory = $Global:Paths.Scripts
+        
+        if ($openFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $scriptPath = $openFileDialog.FileName
+            $description = [Microsoft.VisualBasic.Interaction]::InputBox("Enter a description for this script:", "Script Description", (Split-Path $scriptPath -Leaf))
+            
+            if (-not [string]::IsNullOrWhiteSpace($description)) {
+                Add-ScriptToList -ScriptPath $scriptPath -Description $description
+                Update-StatusStrip "Script added successfully"
+            }
+        }
+        
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Failed to add script: $_", "Add Script Failed", "OK", "Error")
+        Write-Log "Failed to add script: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+$btnRemoveScript_Click = {
+    try {
+        $selectedScript = Get-SelectedScript
+        if ($selectedScript) {
+            $result = [System.Windows.Forms.MessageBox]::Show("Are you sure you want to remove this script?", "Confirm Removal", "YesNo", "Question")
+            if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+                Remove-ScriptFromList -ScriptId $selectedScript.Id
+                Update-StatusStrip "Script removed successfully"
+            }
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Please select a script to remove.", "No Selection", "OK", "Information")
+        }
+        
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Failed to remove script: $_", "Remove Script Failed", "OK", "Error")
+        Write-Log "Failed to remove script: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+$btnMoveUp_Click = {
+    try {
+        if ($Global:MainForm.lvScripts.SelectedItems.Count -gt 0) {
+            $selectedIndex = $Global:MainForm.lvScripts.SelectedItems[0].Index
+            if ($selectedIndex -gt 0) {
+                $script = $Global:AppConfig.Scripts[$selectedIndex]
+                $Global:AppConfig.Scripts.RemoveAt($selectedIndex)
+                $Global:AppConfig.Scripts.Insert($selectedIndex - 1, $script)
+                Update-ScriptsList
+                $Global:MainForm.lvScripts.Items[$selectedIndex - 1].Selected = $true
+                Update-StatusStrip "Script moved up"
+            }
+        }
+    } catch {
+        Write-Log "Failed to move script up: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+$btnMoveDown_Click = {
+    try {
+        if ($Global:MainForm.lvScripts.SelectedItems.Count -gt 0) {
+            $selectedIndex = $Global:MainForm.lvScripts.SelectedItems[0].Index
+            if ($selectedIndex -lt ($Global:AppConfig.Scripts.Count - 1)) {
+                $script = $Global:AppConfig.Scripts[$selectedIndex]
+                $Global:AppConfig.Scripts.RemoveAt($selectedIndex)
+                $Global:AppConfig.Scripts.Insert($selectedIndex + 1, $script)
+                Update-ScriptsList
+                $Global:MainForm.lvScripts.Items[$selectedIndex + 1].Selected = $true
+                Update-StatusStrip "Script moved down"
+            }
+        }
+    } catch {
+        Write-Log "Failed to move script down: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+$btnBrowse_Click = {
+    try {
+        $openFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+        $openFileDialog.Title = "Select PowerShell Script"
+        $openFileDialog.Filter = "PowerShell Scripts (*.ps1)|*.ps1|All Files (*.*)|*.*"
+        $openFileDialog.InitialDirectory = $Global:Paths.Scripts
+        
+        if ($openFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            if ($Global:MainForm.txtScriptPath) {
+                $Global:MainForm.txtScriptPath.Text = $openFileDialog.FileName
+            }
+        }
+        
+    } catch {
+        Write-Log "Failed to browse for script: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+$btnSaveScriptDetails_Click = {
+    try {
+        $selectedScript = Get-SelectedScript
+        if ($selectedScript) {
+            $selectedScript.Path = $Global:MainForm.txtScriptPath.Text
+            $selectedScript.Description = $Global:MainForm.txtScriptDescription.Text
+            $selectedScript.Enabled = $Global:MainForm.chkScriptEnabled.Checked
+            
+            Update-ScriptsList
+            [System.Windows.Forms.MessageBox]::Show("Script details saved successfully.", "Details Saved", "OK", "Information")
+            Write-Log "Script details saved for: $($selectedScript.Path)" -Level "INFO" -UpdateUI
+            Update-StatusStrip "Script details saved"
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Please select a script to save details.", "No Selection", "OK", "Information")
+        }
+        
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Failed to save script details: $_", "Save Failed", "OK", "Error")
+        Write-Log "Failed to save script details: $_" -Level "ERROR" -UpdateUI
+    }
+}
+#endregion
+
+#region Parameter Management Event Handlers
+$btnAddParam_Click = {
+    try {
+        $paramName = [Microsoft.VisualBasic.Interaction]::InputBox("Enter parameter name:", "Add Parameter", "")
+        if (-not [string]::IsNullOrWhiteSpace($paramName)) {
+            $paramValue = [Microsoft.VisualBasic.Interaction]::InputBox("Enter parameter value:", "Parameter Value", "")
+            
+            $selectedScript = Get-SelectedScript
+            if ($selectedScript) {
+                $selectedScript.Parameters[$paramName] = $paramValue
+                Update-ParametersList
+                Write-Log "Parameter added: $paramName = $paramValue" -Level "INFO" -UpdateUI
+                Update-StatusStrip "Parameter added"
+            }
+        }
+        
+    } catch {
+        Write-Log "Failed to add parameter: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+$btnEditParam_Click = {
+    try {
+        if ($Global:MainForm.lvParameters.SelectedItems.Count -gt 0) {
+            $selectedItem = $Global:MainForm.lvParameters.SelectedItems[0]
+            $paramName = $selectedItem.Text
+            $currentValue = $selectedItem.SubItems[1].Text
+            
+            $newValue = [Microsoft.VisualBasic.Interaction]::InputBox("Edit parameter value:", "Edit Parameter", $currentValue)
+            if ($newValue -ne $currentValue) {
+                $selectedScript = Get-SelectedScript
+                if ($selectedScript) {
+                    $selectedScript.Parameters[$paramName] = $newValue
+                    Update-ParametersList
+                    Write-Log "Parameter updated: $paramName = $newValue" -Level "INFO" -UpdateUI
+                    Update-StatusStrip "Parameter updated"
+                }
+            }
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Please select a parameter to edit.", "No Selection", "OK", "Information")
+        }
+        
+    } catch {
+        Write-Log "Failed to edit parameter: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+$btnRemoveParam_Click = {
+    try {
+        if ($Global:MainForm.lvParameters.SelectedItems.Count -gt 0) {
+            $selectedItem = $Global:MainForm.lvParameters.SelectedItems[0]
+            $paramName = $selectedItem.Text
+            
+            $result = [System.Windows.Forms.MessageBox]::Show("Remove parameter '$paramName'?", "Confirm Removal", "YesNo", "Question")
+            if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+                $selectedScript = Get-SelectedScript
+                if ($selectedScript) {
+                    $selectedScript.Parameters.Remove($paramName)
+                    Update-ParametersList
+                    Write-Log "Parameter removed: $paramName" -Level "INFO" -UpdateUI
+                    Update-StatusStrip "Parameter removed"
+                }
+            }
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Please select a parameter to remove.", "No Selection", "OK", "Information")
+        }
+        
+    } catch {
+        Write-Log "Failed to remove parameter: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+$btnDetectParams_Click = {
+    try {
+        $selectedScript = Get-SelectedScript
+        if ($selectedScript -and (Test-Path $selectedScript.Path)) {
+            $scriptContent = Get-Content -Path $selectedScript.Path -Raw
+            
+            # Simple parameter detection (can be enhanced)
+            $paramPattern = 'param\s*\( \s*([^)]+) \)'
+            $matches = [regex]::Matches($scriptContent, $paramPattern, 'IgnoreCase,Singleline')
+            
+            if ($matches.Count -gt 0) {
+                $detectedParams = @()
+                foreach ($match in $matches) {
+                    $paramBlock = $match.Groups[1].Value
+                    $paramLines = $paramBlock -split ','
+                    foreach ($line in $paramLines) {
+                        if ($line -match '\$(\w+)') {
+                            $detectedParams += $matches_[1]
+                        }
+                    }
+                }
+                
+                if ($detectedParams.Count -gt 0) {
+                    $message = "Detected parameters: " + ($detectedParams -join ', ') + "`n`nAdd them to the parameter list?"
+                    $result = [System.Windows.Forms.MessageBox]::Show($message, "Parameters Detected", "YesNo", "Question")
+                    
+                    if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+                        foreach ($param in $detectedParams) {
+                            if (-not $selectedScript.Parameters.ContainsKey($param)) {
+                                $selectedScript.Parameters[$param] = ""
+                            }
+                        }
+                        Update-ParametersList
+                        Update-StatusStrip "Parameters detected and added"
+                    }
+                } else {
+                    [System.Windows.Forms.MessageBox]::Show("No parameters detected in the script.", "No Parameters", "OK", "Information")
+                }
+            } else {
+                [System.Windows.Forms.MessageBox]::Show("No parameter block found in the script.", "No Parameters", "OK", "Information")
+            }
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Please select a valid script file.", "Invalid Script", "OK", "Warning")
+        }
+        
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Failed to detect parameters: $_", "Detection Failed", "OK", "Error")
+        Write-Log "Failed to detect parameters: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+function Update-ParametersList {
+    try {
+        if (-not $Global:MainForm.lvParameters) { return }
+        
+        $Global:MainForm.lvParameters.Items.Clear()
+        
+        # Add columns if not present
+        if ($Global:MainForm.lvParameters.Columns.Count -eq 0) {
+            $Global:MainForm.lvParameters.Columns.Add("Parameter", 150) | Out-Null
+            $Global:MainForm.lvParameters.Columns.Add("Value", 200) | Out-Null
+        }
+        
+        $selectedScript = Get-SelectedScript
+        if ($selectedScript -and $selectedScript.Parameters) {
+            foreach ($param in $selectedScript.Parameters.GetEnumerator()) {
+                $item = New-Object System.Windows.Forms.ListViewItem
+                $item.Text = $param.Key
+                $item.SubItems.Add($param.Value) | Out-Null
+                $Global:MainForm.lvParameters.Items.Add($item) | Out-Null
+            }
+        }
+        
+    } catch {
+        Write-Log "Error updating parameters list: $_" -Level "ERROR" -UpdateUI
+    }
+}
+#endregion
+
+#region Execution Event Handlers
+$btnRunAll_Click = {
+    try {
+        if ($Global:AppConfig.IsExecuting) {
+            [System.Windows.Forms.MessageBox]::Show("Execution is already in progress.", "Already Running", "OK", "Information")
+            return
+        }
+        
+        $enabledScripts = $Global:AppConfig.Scripts | Where-Object { $_.Enabled }
+        if ($enabledScripts.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show("No enabled scripts found.", "No Scripts", "OK", "Information")
+            return
+        }
+        
+        $result = [System.Windows.Forms.MessageBox]::Show("Run all $($enabledScripts.Count) enabled scripts?", "Confirm Execution", "YesNo", "Question")
+        if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+            Start-ScriptExecution -Scripts $enabledScripts
+        }
+        
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Failed to start execution: $_", "Execution Failed", "OK", "Error")
+        Write-Log "Failed to start script execution: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+$btnRunSelected_Click = {
+    try {
+        $selectedScript = Get-SelectedScript
+        if ($selectedScript) {
+            if (-not $selectedScript.Enabled) {
+                $result = [System.Windows.Forms.MessageBox]::Show("Selected script is disabled. Run anyway?", "Script Disabled", "YesNo", "Question")
+                if ($result -ne [System.Windows.Forms.DialogResult]::Yes) {
+                    return
+                }
+            }
+            
+            Start-ScriptExecution -Scripts @($selectedScript)
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Please select a script to run.", "No Selection", "OK", "Information")
+        }
+        
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Failed to run selected script: $_", "Execution Failed", "OK", "Error")
+        Write-Log "Failed to run selected script: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+$btnStopExecution_Click = {
+    try {
+        if ($Global:AppConfig.IsExecuting -and $Global:AppConfig.CurrentJob) {
+            $result = [System.Windows.Forms.MessageBox]::Show("Stop the current execution?", "Confirm Stop", "YesNo", "Question")
+            if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+                Stop-Job -Job $Global:AppConfig.CurrentJob -PassThru | Remove-Job -Force
+                $Global:AppConfig.IsExecuting = $false
+                $Global:AppConfig.CurrentJob = $null
+                
+                Update-ExecutionUI -Reset
+                Write-Log "Script execution stopped by user" -Level "WARNING" -UpdateUI
+                Update-StatusStrip "Execution stopped"
+            }
+        }
+        
+    } catch {
+        Write-Log "Failed to stop execution: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+function Start-ScriptExecution {
+    param([array]$Scripts)
+    
+    try {
+        $Global:AppConfig.IsExecuting = $true
+        Update-ExecutionUI -Started
+        
+        Write-Log "Starting execution of $($Scripts.Count) scripts" -Level "INFO" -UpdateUI
+        Update-StatusStrip "Executing scripts..."
+        
+        $scriptBlock = {
+            param($ScriptsToRun, $ExecutionSettings)
+            
+            $results = @()
+            $currentIndex = 0
+            
+            foreach ($script in $ScriptsToRun) {
+                $currentIndex++
+                $result = @{
+                    Script = $script
+                    StartTime = Get-Date
+                    Success = $false
+                    Output = ""
+                    Error = ""
+                }
+                
+                try {
+                    if (Test-Path $script.Path) {
+                        $params = @{}
+                        foreach ($param in $script.Parameters.GetEnumerator()) {
+                            if (-not [string]::IsNullOrWhiteSpace($param.Value)) {
+                                $params[$param.Key] = $param.Value
+                            }
+                        }
+                        
+                        $output = & $script.Path @params 2>&1
+                        $result.Output = $output -join "`n"
+                        $result.Success = $true
+                    } else {
+                        $result.Error = "Script file not found: $($script.Path)"
+                    }
+                } catch {
+                    $result.Error = $_.Exception.Message
+                }
+                
+                $result.EndTime = Get-Date
+                $result.Duration = $result.EndTime - $result.StartTime
+                $results += $result
+                
+                # Update progress
+                $progressPercent = [int](($currentIndex / $ScriptsToRun.Count) * 100)
+                Write-Progress -Activity "Executing Scripts" -Status "Script $currentIndex of $($ScriptsToRun.Count)" -PercentComplete $progressPercent
+                
+                if ($ExecutionSettings.StopOnError -and -not $result.Success) {
+                    break
+                }
+            }
+            
+            return $results
+        }
+        
+        $Global:AppConfig.CurrentJob = Start-Job -ScriptBlock $scriptBlock -ArgumentList $Scripts, $Global:AppConfig.ExecutionSettings
+        
+        # Monitor job progress
+        $timer = New-Object System.Windows.Forms.Timer
+        $timer.Interval = 1000  # Check every second
+        $timer.Add_Tick({
+            if ($Global:AppConfig.CurrentJob.State -eq "Completed") {
+                $results = Receive-Job -Job $Global:AppConfig.CurrentJob
+                Remove-Job -Job $Global:AppConfig.CurrentJob
+                
+                $Global:AppConfig.IsExecuting = $false
+                $Global:AppConfig.CurrentJob = $null
+                
+                Complete-ScriptExecution -Results $results
+                $timer.Stop()
+                $timer.Dispose()
+            } elseif ($Global:AppConfig.CurrentJob.State -eq "Failed") {
+                $error = $Global:AppConfig.CurrentJob.JobStateInfo.Reason.Message
+                Write-Log "Script execution failed: $error" -Level "ERROR" -UpdateUI
+                
+                $Global:AppConfig.IsExecuting = $false
+                $Global:AppConfig.CurrentJob = $null
+                Update-ExecutionUI -Reset
+                $timer.Stop()
+                $timer.Dispose()
+            }
+        })
+        $timer.Start()
+        
+    } catch {
+        $Global:AppConfig.IsExecuting = $false
+        Write-Log "Failed to start script execution: $_" -Level "ERROR" -UpdateUI
+        Update-ExecutionUI -Reset
+    }
+}
+
+function Complete-ScriptExecution {
+    param([array]$Results)
+    
+    try {
+        $successCount = ($Results | Where-Object { $_.Success }).Count
+        $totalCount = $Results.Count
+        
+        Write-Log "Script execution completed: $successCount/$totalCount successful" -Level "INFO" -UpdateUI
+        Update-StatusStrip "Execution completed: $successCount/$totalCount successful"
+        
+        # Update output
+        $outputText = ""
+        foreach ($result in $Results) {
+            $outputText += "=== Script: $(Split-Path $result.Script.Path -Leaf) ===`n"
+            $outputText += "Start Time: $($result.StartTime)`n"
+            $outputText += "Duration: $($result.Duration)`n"
+            $outputText += "Status: $(if ($result.Success) { 'SUCCESS' } else { 'FAILED' })`n"
+            
+            if ($result.Success) {
+                $outputText += "Output:`n$($result.Output)`n"
+            } else {
+                $outputText += "Error:`n$($result.Error)`n"
+            }
+            $outputText += "`n" + "="*50 + "`n`n"
+        }
+        
+        if ($Global:MainForm.txtExecutionOutput) {
+            $Global:MainForm.txtExecutionOutput.Text = $outputText
+        }
+        
+        Update-ExecutionUI -Reset
+        
+        [System.Windows.Forms.MessageBox]::Show("Execution completed: $successCount/$totalCount scripts successful.", "Execution Complete", "OK", "Information")
+        
+    } catch {
+        Write-Log "Error completing script execution: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+function Update-ExecutionUI {
     param(
-        [Parameter(Mandatory = $true)]
-        [string]$ScriptPath
+        [switch]$Started,
+        [switch]$Reset
     )
     
     try {
-        if (-not (Test-Path -Path $ScriptPath)) {
-            throw "Script file not found: $ScriptPath"
-        }
-        
-        $scriptContent = Get-Content -Path $ScriptPath -Raw
-        $parameters = @()
-        
-        # Simple regex-based parameter detection
-        $paramBlockPattern = '(?s)param\s*\( (.*?) \)'
-        $paramMatches = [regex]::Matches($scriptContent, $paramBlockPattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-        
-        foreach ($match in $paramMatches) {
-            $paramContent = $match.Groups[1].Value
+        if ($Started) {
+            if ($Global:MainForm.btnRunAll) { $Global:MainForm.btnRunAll.Enabled = $false }
+            if ($Global:MainForm.btnRunSelected) { $Global:MainForm.btnRunSelected.Enabled = $false }
+            if ($Global:MainForm.btnStopExecution) { $Global:MainForm.btnStopExecution.Enabled = $true }
             
-            # Extract individual parameters
-            $individualParamPattern = '\[ ([^ \]]+) \]\s*\$(\w+)(?:\s*=\s*([^, \)]+))?'
-            $individualMatches = [regex]::Matches($paramContent, $individualParamPattern)
+            if ($Global:MainForm.progressOverall) { $Global:MainForm.progressOverall.Value = 0 }
+            if ($Global:MainForm.progressCurrentScript) { $Global:MainForm.progressCurrentScript.Value = 0 }
             
-            foreach ($paramMatch in $individualMatches) {
-                $paramType = $paramMatch.Groups[1].Value.Trim()
-                $paramName = $paramMatch.Groups[2].Value.Trim()
-                $defaultValue = if ($paramMatch.Groups[3].Success) { $paramMatch.Groups[3].Value.Trim() } else { $null }
-                
-                $parameters += [PSCustomObject]@{
-                    Name = $paramName
-                    Type = $paramType
-                    DefaultValue = $defaultValue
-                    Required = $paramType -like "*Mandatory*"
-                    Description = ""
-                }
-            }
+        } elseif ($Reset) {
+            if ($Global:MainForm.btnRunAll) { $Global:MainForm.btnRunAll.Enabled = $true }
+            if ($Global:MainForm.btnRunSelected) { $Global:MainForm.btnRunSelected.Enabled = $true }
+            if ($Global:MainForm.btnStopExecution) { $Global:MainForm.btnStopExecution.Enabled = $false }
+            
+            if ($Global:MainForm.progressOverall) { $Global:MainForm.progressOverall.Value = 0 }
+            if ($Global:MainForm.progressCurrentScript) { $Global:MainForm.progressCurrentScript.Value = 0 }
         }
-        
-        Write-Log "Detected $($parameters.Count) parameters in script: $ScriptPath" -Level "DEBUG"
-        return $parameters
         
     } catch {
-        Write-Log "Error parsing script parameters: $($_.Exception.Message)" -Level "ERROR"
-        return @()
+        Write-Log "Error updating execution UI: $_" -Level "ERROR"
     }
 }
-
 #endregion
 
-#region UI Helper Functions
-function Show-ModuleStatus {
-    <#
-    .SYNOPSIS
-        Displays current module status for troubleshooting
-    #>
-    
-    if (Get-Command "Get-ModuleStatus" -ErrorAction SilentlyContinue) {
-        $modules = @("PowerShellGet", "PackageManagement", "ImportExcel", "PSWriteHTML")
-        $statusReport = Get-ModuleStatus -ModuleNames $modules
-        
-        Write-Host "`n=== Module Status Report ===" -ForegroundColor Cyan
-        foreach ($module in $statusReport) {
-            $status = if ($module.IsImported) { "? Imported" } elseif ($module.IsInstalled) { "? Installed" } else { "? Missing" }
-            $version = if ($module.ImportedVersion) { "v$($module.ImportedVersion)" } elseif ($module.InstalledVersion) { "v$($module.InstalledVersion)" } else { "N/A" }
-            
-            Write-Host "$($module.ModuleName): $status ($version)" -ForegroundColor $(
-                if ($module.IsImported) { "Green" } elseif ($module.IsInstalled) { "Yellow" } else { "Red" }
-            )
-        }
-    } else {
-        Write-Warning "ModuleManager not available - cannot show module status"
-    }
-}
-
-function Update-ScriptsListView {
-    <#
-    .SYNOPSIS
-        Updates the scripts ListView with current script collection
-    #>
-    
-    if ($script:ScriptsListView) {
-        try {
-            $script:ScriptsListView.BeginUpdate()
-            $script:ScriptsListView.Items.Clear()
-            
-            foreach ($scriptItem in $script:Scripts) {
-                $listViewItem = New-Object System.Windows.Forms.ListViewItem($scriptItem.Name)
-                $listViewItem.SubItems.Add($scriptItem.Path)
-                $listViewItem.SubItems.Add($scriptItem.Description)
-                $listViewItem.SubItems.Add($scriptItem.Parameters.Count.ToString())
-                $listViewItem.SubItems.Add($scriptItem.ExecutionCount.ToString())
-                
-                # Format last executed date
-                $lastExecutedText = if ($scriptItem.LastExecuted) { 
-                    $scriptItem.LastExecuted.ToString("yyyy-MM-dd HH:mm")
-                } else { 
-                    "Never" 
-                }
-                $listViewItem.SubItems.Add($lastExecutedText)
-                
-                $listViewItem.Tag = $scriptItem
-                
-                # Color coding based on status
-                if ($scriptItem.ExecutionCount -eq 0) {
-                    $listViewItem.ForeColor = [System.Drawing.Color]::Gray
-                } elseif ($scriptItem.LastResult -eq "Success") {
-                    $listViewItem.ForeColor = [System.Drawing.Color]::DarkGreen
-                } elseif ($scriptItem.LastResult -eq "Error") {
-                    $listViewItem.ForeColor = [System.Drawing.Color]::DarkRed
-                }
-                
-                $script:ScriptsListView.Items.Add($listViewItem)
-            }
-            
-            Write-Log "Updated scripts ListView with $($script:Scripts.Count) items" -Level "DEBUG"
-            
-        } catch {
-            Write-Log "Error updating scripts ListView: $($_.Exception.Message)" -Level "ERROR"
-        } finally {
-            $script:ScriptsListView.EndUpdate()
-        }
-    }
-}
-
-function Update-ParametersListView {
-    <#
-    .SYNOPSIS
-        Updates the parameters ListView with parameters from selected script
-    #>
-    
-    if ($script:ParametersListView -and $script:SelectedScript) {
-        try {
-            $script:ParametersListView.BeginUpdate()
-            $script:ParametersListView.Items.Clear()
-            
-            foreach ($paramPair in $script:SelectedScript.Parameters.GetEnumerator()) {
-                $param = $paramPair.Value
-                $listViewItem = New-Object System.Windows.Forms.ListViewItem($paramPair.Key)
-                
-                $currentValue = if ($param.CurrentValue) { $param.CurrentValue } else { $param.DefaultValue }
-                if (-not $currentValue) { $currentValue = "" }
-                $listViewItem.SubItems.Add($currentValue)
-                
-                $paramType = if ($param.Type) { $param.Type } else { "String" }
-                $listViewItem.SubItems.Add($paramType)
-                
-                $isRequired = if ($param.Required) { "Yes" } else { "No" }
-                $listViewItem.SubItems.Add($isRequired)
-                
-                $description = if ($param.Description) { $param.Description } else { "" }
-                $listViewItem.SubItems.Add($description)
-                
-                # Color coding for required parameters
-                if ($param.Required -and [string]::IsNullOrEmpty($currentValue)) {
-                    $listViewItem.ForeColor = [System.Drawing.Color]::Red
-                    $listViewItem.Font = New-Object System.Drawing.Font($listViewItem.Font, [System.Drawing.FontStyle]::Bold)
-                }
-                
-                $script:ParametersListView.Items.Add($listViewItem)
-            }
-            
-            Write-Log "Updated parameters ListView with $($script:SelectedScript.Parameters.Count) items" -Level "DEBUG"
-            
-        } catch {
-            Write-Log "Error updating parameters ListView: $($_.Exception.Message)" -Level "ERROR"
-        } finally {
-            $script:ParametersListView.EndUpdate()
-        }
-    }
-}
-
-function Show-EditParameterDialog {
-    param(
-        [string]$ParameterName = "",
-        [string]$CurrentValue = "",
-        [string]$ParameterType = "String",
-        [bool]$IsRequired = $false,
-        [string]$Description = ""
-    )
-    
+#region Log Management Event Handlers
+$btnRefreshLogs_Click = {
     try {
-        # Load EditParam files directly from root
-        $rootDir = if ($Global:ScriptRoot) { $Global:ScriptRoot } else { $PSScriptRoot }
-        $designerPath = Join-Path $rootDir "EditParam.designer.ps1"
-        $logicPath = Join-Path $rootDir "EditParam.ps1"
-        
-        Write-Log "Loading EditParam form: Designer=$designerPath, Logic=$logicPath" -Level "DEBUG"
-        
-        if (Test-Path $designerPath) { . $designerPath }
-        if (Test-Path $logicPath) { . $logicPath }
-        
-        # Find the EditParam form variable
-        $possibleNames = @('EditParam', 'editParam', 'EditParamForm', 'formEditParam')
-        $editForm = $null
-        
-        foreach ($name in $possibleNames) {
-            $var = Get-Variable -Name $name -ErrorAction SilentlyContinue
-            if ($var -and $var.Value -and $var.Value.GetType().Name -like "*Form*") {
-                $editForm = $var.Value
-                break
+        if (Test-Path $Global:LogFile) {
+            $logContent = Get-Content -Path $Global:LogFile -Raw
+            if ($Global:MainForm.logTextBox) {
+                $Global:MainForm.logTextBox.Text = $logContent
+                $Global:MainForm.logTextBox.ScrollToCaret()
             }
-        }
-        
-        if ($editForm) {
-            # Set form properties if they exist
-            $formProperties = $editForm.PSObject.Properties.Name
-            
-            if ($formProperties -contains "ParameterName") { $editForm.ParameterName = $ParameterName }
-            if ($formProperties -contains "ParameterValue") { $editForm.ParameterValue = $CurrentValue }
-            if ($formProperties -contains "ParameterType") { $editForm.ParameterType = $ParameterType }
-            if ($formProperties -contains "IsRequired") { $editForm.IsRequired = $IsRequired }
-            if ($formProperties -contains "Description") { $editForm.Description = $Description }
-            
-            Write-Log "Showing EditParam dialog for parameter: $ParameterName" -Level "INFO"
-            return $editForm.ShowDialog()
-        }
-        else {
-            Write-Log "EditParam form not found. Tried: $($possibleNames -join ', ')" -Level "WARNING"
-            return [System.Windows.Forms.DialogResult]::Cancel
+            Write-Log "Log refreshed from file" -Level "INFO"
+            Update-StatusStrip "Log refreshed"
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Log file not found.", "No Log File", "OK", "Information")
         }
         
     } catch {
-        Write-Log "Error loading EditParam form: $($_.Exception.Message)" -Level "ERROR"
-        return [System.Windows.Forms.DialogResult]::Cancel
+        [System.Windows.Forms.MessageBox]::Show("Failed to refresh logs: $_", "Refresh Failed", "OK", "Error")
+        Write-Log "Failed to refresh logs: $_" -Level "ERROR" -UpdateUI
     }
 }
 
+$btnClearLogs_Click = {
+    try {
+        $result = [System.Windows.Forms.MessageBox]::Show("Clear all logs? This action cannot be undone.", "Confirm Clear", "YesNo", "Question")
+        if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+            if ($Global:MainForm.logTextBox) {
+                $Global:MainForm.logTextBox.Clear()
+            }
+            
+            if (Test-Path $Global:LogFile) {
+                Clear-Content -Path $Global:LogFile -Force
+            }
+            
+            Write-Log "Application started - logs cleared" -Level "INFO" -UpdateUI
+            Update-StatusStrip "Logs cleared"
+        }
+        
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Failed to clear logs: $_", "Clear Failed", "OK", "Error")
+        Write-Log "Failed to clear logs: $_" -Level "ERROR" -UpdateUI
+    }
+}
+
+$btnExportLogs_Click = {
+    try {
+        $saveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
+        $saveFileDialog.Title = "Export Logs"
+        $saveFileDialog.Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*"
+        $saveFileDialog.DefaultExt = "txt"
+        $saveFileDialog.FileName = "application_logs_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').txt"
+        $saveFileDialog.InitialDirectory = $Global:Paths.Exports
+        
+        if ($saveFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            if (Test-Path $Global:LogFile) {
+                Copy-Item -Path $Global:LogFile -Destination $saveFileDialog.FileName -Force
+                [System.Windows.Forms.MessageBox]::Show("Logs exported successfully to: $($saveFileDialog.FileName)", "Export Successful", "OK", "Information")
+                Write-Log "Logs exported to: $($saveFileDialog.FileName)" -Level "INFO" -UpdateUI
+                Update-StatusStrip "Logs exported"
+            } else {
+                [System.Windows.Forms.MessageBox]::Show("No log file found to export.", "No Logs", "OK", "Information")
+            }
+        }
+        
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Failed to export logs: $_", "Export Failed", "OK", "Error")
+        Write-Log "Failed to export logs: $_" -Level "ERROR" -UpdateUI
+    }
+}
 #endregion
 
-#region Application Lifecycle Management
+#region Application Event Handlers
+$btnSaveAll_Click = {
+    try {
+        Update-ConfigFromUI
+        if (Save-AppConfig) {
+            [System.Windows.Forms.MessageBox]::Show("All settings saved successfully.", "Settings Saved", "OK", "Information")
+            Update-StatusStrip "All settings saved"
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Failed to save some settings.", "Save Failed", "OK", "Warning")
+        }
+        
+    } catch {
+        [System.Windows.Forms.MessageBox]::Show("Failed to save settings: $_", "Save Failed", "OK", "Error")
+        Write-Log "Failed to save all settings: $_" -Level "ERROR" -UpdateUI
+    }
+}
 
+$btnExit_Click = {
+    try {
+        if ($Global:AppConfig.IsExecuting) {
+            $result = [System.Windows.Forms.MessageBox]::Show("Scripts are currently executing. Stop execution and exit?", "Confirm Exit", "YesNo", "Question")
+            if ($result -ne [System.Windows.Forms.DialogResult]::Yes) {
+                return
+            }
+            
+            if ($Global:AppConfig.CurrentJob) {
+                Stop-Job -Job $Global:AppConfig.CurrentJob -PassThru | Remove-Job -Force
+            }
+        }
+        
+        Update-ConfigFromUI
+        Save-AppConfig | Out-Null
+        
+        Write-Log "Application closing" -Level "INFO" -UpdateUI
+        $Global:MainForm.Close()
+        
+    } catch {
+        Write-Log "Error during application exit: $_" -Level "ERROR" -UpdateUI
+        $Global:MainForm.Close()
+    }
+}
+
+$btnHelp_Click = {
+    try {
+        $helpText = @"
+vCenter Migration Workflow Manager - Help
+
+CONNECTION TAB:
+- Enter source and target vCenter server details
+- Test connections before proceeding
+- Save/Load connection settings for reuse
+
+SCRIPTS TAB:
+- Add PowerShell scripts to execute in sequence
+- Configure script parameters
+- Enable/disable scripts as needed
+- Reorder scripts using Move Up/Down buttons
+
+EXECUTION TAB:
+- Configure execution settings (timeout, error handling)
+- Run all enabled scripts or just selected script
+- Monitor progress and view output
+
+LOGS TAB:
+- View application logs
+- Refresh, clear, or export logs
+- Monitor script execution details
+
+For more information, check the application documentation.
+"@
+        
+        [System.Windows.Forms.MessageBox]::Show($helpText, "Help", "OK", "Information")
+        Write-Log "Help dialog displayed" -Level "INFO" -UpdateUI
+        
+    } catch {
+        Write-Log "Failed to show help: $_" -Level "ERROR" -UpdateUI
+    }
+}
+#endregion
+
+#region Event Handler Registration
+function Register-EventHandlers {
+    Write-Log "Registering event handlers..." -Level "INFO"
+    
+    # This function is called from the main logic after all functions are defined
+    # Event handlers are already attached in the designer file
+    
+    # Additional UI event handlers can be registered here
+    try {
+        # Script selection change handler
+        if ($Global:MainForm.lvScripts) {
+            $Global:MainForm.lvScripts.add_SelectedIndexChanged({
+                $selectedScript = Get-SelectedScript
+                if ($selectedScript) {
+                    if ($Global:MainForm.txtScriptPath) { $Global:MainForm.txtScriptPath.Text = $selectedScript.Path }
+                    if ($Global:MainForm.txtScriptDescription) { $Global:MainForm.txtScriptDescription.Text = $selectedScript.Description }
+                    if ($Global:MainForm.chkScriptEnabled) { $Global:MainForm.chkScriptEnabled.Checked = $selectedScript.Enabled }
+                    Update-ParametersList
+                }
+            })
+        }
+        
+        Write-Log "Event handlers registered successfully" -Level "INFO"
+    } catch {
+        Write-Log "Error registering additional event handlers: $_" -Level "ERROR"
+    }
+}
+#endregion
+
+#region Application Initialization
 function Initialize-Application {
     try {
-        Write-Log "Initializing AI Gen Workflow Wrapper application" -Level "INFO"
+        Write-Log "Initializing application..." -Level "INFO" -UpdateUI
         
         # Load configuration
-        Load-Configuration
+        Load-AppConfig | Out-Null
         
-        # Initialize data structures
-        if (-not $script:Scripts) {
-            $script:Scripts = @()
+        # Initialize UI
+        Update-ScriptsList
+        Update-ExecutionUI -Reset
+        
+        # Load any saved logs into UI
+        if ($Global:MainForm.btnRefreshLogs_Click) {
+            & $Global:MainForm.btnRefreshLogs_Click
         }
         
-        Write-Log "Application initialization completed successfully" -Level "INFO"
+        Update-StatusStrip "Application ready"
+        Write-Log "Application initialization complete" -Level "INFO" -UpdateUI
         
     } catch {
-        Write-Log "Critical error during application initialization: $($_.Exception.Message)" -Level "CRITICAL"
-        throw
+        Write-Log "Error during application initialization: $_" -Level "ERROR" -UpdateUI
     }
 }
-
-function Save-ApplicationState {
-    try {
-        # Save scripts
-        $scriptsFile = Get-AppDataPath -FileName "saved_scripts.json"
-        $script:Scripts | ConvertTo-Json -Depth 10 | Set-Content $scriptsFile -Encoding UTF8
-        
-        # Save configuration
-        Save-Configuration
-        
-        Write-Log "Application state saved successfully" -Level "INFO"
-        
-    } catch {
-        Write-Log "Error saving application state: $($_.Exception.Message)" -Level "ERROR"
-    }
-}
-
 #endregion
 
-# Initialize application when this file is loaded
-Write-Log "Loading Globals.ps1 - Global functions and variables initialized" -Level "INFO"
-
-# Auto-initialize if not already done
-if (-not $script:Config -or $script:Config.Count -eq 0) {
-    Initialize-Application
-}
+# Export functions for use in other scripts
+Write-Log "Globals.ps1 loaded successfully" -Level "INFO"

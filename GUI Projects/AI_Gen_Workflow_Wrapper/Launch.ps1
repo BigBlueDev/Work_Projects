@@ -1,5 +1,5 @@
 # Launch.ps1
-# Complete entry point for AI Gen Workflow Wrapper with module management
+# Complete entry point for AI Gen Workflow Wrapper with form variable fix
 
 # Load required assemblies
 Add-Type -AssemblyName System.Windows.Forms
@@ -197,26 +197,70 @@ if (Test-Path $globalsFile) {
 Write-Host "`n--- Loading Form Designer ---" -ForegroundColor Cyan
 $loadSuccess = $loadSuccess -and (Import-AppFile -FileName "AI_Gen_Workflow_Wrapper.designer.ps1" -Description "Form Designer")
 
-# Check immediately after loading designer
-Write-Host "`n--- Checking Form Variables After Designer Load ---" -ForegroundColor Yellow
+# FORM VARIABLE FIX: Create expected form variables after designer loads
+if ($loadSuccess) {
+    Write-Host "`n--- Creating Form Variable Aliases ---" -ForegroundColor Cyan
+    
+    try {
+        # Check if mainForm exists (created by designer)
+        $mainFormFound = $false
+        
+        if (Get-Variable -Name "mainForm" -ErrorAction SilentlyContinue) {
+            $mainFormVar = Get-Variable -Name "mainForm"
+            if ($mainFormVar.Value -and $mainFormVar.Value.GetType().Name -like "*Form*") {
+                
+                # Create the expected variable names
+                $Global:AI_Gen_Workflow_Wrapper = $mainFormVar.Value
+                $Global:MainForm = $mainFormVar.Value
+                Set-Variable -Name "AI_Gen_Workflow_Wrapper" -Value $mainFormVar.Value -Scope Global -Force
+                
+                $mainFormFound = $true
+                Write-Host "✓ Form variables created successfully" -ForegroundColor Green
+                Write-Host "  - AI_Gen_Workflow_Wrapper: $($mainFormVar.Value.GetType().Name)" -ForegroundColor Gray
+                Write-Host "  - MainForm: $($mainFormVar.Value.GetType().Name)" -ForegroundColor Gray
+                Write-Host "  - Form Text: '$($mainFormVar.Value.Text)'" -ForegroundColor Gray
+                Write-Log "Form variables initialized: AI_Gen_Workflow_Wrapper, MainForm" -Level "INFO"
+                
+            } else {
+                Write-Host "⚠ mainForm variable exists but doesn't contain a form" -ForegroundColor Yellow
+                Write-Log "mainForm variable found but invalid" -Level "WARNING"
+            }
+        }
+        
+        if (-not $mainFormFound) {
+            Write-Host "⚠ mainForm variable not found from designer" -ForegroundColor Yellow
+            Write-Log "mainForm variable not found - checking for other form variables" -Level "WARNING"
+        }
+        
+    } catch {
+        Write-Host "⚠ Error creating form variable aliases: $_" -ForegroundColor Yellow
+        Write-Log "Error creating form variable aliases: $_" -Level "ERROR"
+    }
+}
+
+# Check immediately after loading designer and creating aliases
+Write-Host "`n--- Verifying Form Variables After Alias Creation ---" -ForegroundColor Yellow
 $allVarsAfterDesigner = Get-Variable | Where-Object { 
     $_.Value -and 
     ($_.Value.GetType().Name -like "*Form*" -or $_.Name -like "*Form*" -or $_.Name -like "*AI_Gen*" -or $_.Name -like "*Wrapper*" -or $_.Name -eq "mainForm")
 }
 
 if ($allVarsAfterDesigner) {
-    Write-Host "Variables found after designer load:" -ForegroundColor Cyan
+    Write-Host "Form variables found:" -ForegroundColor Cyan
     foreach ($var in $allVarsAfterDesigner) {
         Write-Host "  - $($var.Name) = $($var.Value.GetType().Name)" -ForegroundColor Gray
         
-        # Check if this is a form
+        # Check if this is a form and validate it
         if ($var.Value.GetType().Name -like "*Form*") {
-            Write-Host "    ↳ This is a FORM! Text: '$($var.Value.Text)'" -ForegroundColor Green
-            Write-Log "Found form variable: $($var.Name) with text '$($var.Value.Text)'" -Level "INFO"
-            
-            # Make sure it's global
-            Set-Variable -Name $var.Name -Value $var.Value -Scope Global -Force
-            Write-Host "    ↳ Set as global variable" -ForegroundColor Green
+            try {
+                $isDisposed = $var.Value.IsDisposed
+                $formText = $var.Value.Text
+                $statusText = if ($isDisposed) { "DISPOSED" } else { "ACTIVE" }
+                Write-Host "    ↳ Form Status: $statusText, Text: '$formText'" -ForegroundColor $(if ($isDisposed) { "Red" } else { "Green" })
+                Write-Log "Found form variable: $($var.Name) - Status: $statusText" -Level "INFO"
+            } catch {
+                Write-Host "    ↳ Error checking form status: $_" -ForegroundColor Red
+            }
         }
     }
 } else {
@@ -228,24 +272,21 @@ if ($allVarsAfterDesigner) {
 Write-Host "`n--- Loading Main Logic ---" -ForegroundColor Cyan
 $loadSuccess = $loadSuccess -and (Import-AppFile -FileName "AI_Gen_Workflow_Wrapper.ps1" -Description "Core Application Logic")
 
-# Start application with comprehensive form detection
+# Start application with enhanced form detection
 if ($loadSuccess) {
     Write-Host "`n--- Starting Application ---" -ForegroundColor Cyan
     
     try {
-        # Comprehensive form variable search
-        Write-Host "`n--- Comprehensive Form Search ---" -ForegroundColor Yellow
+        # Enhanced form variable search with disposal checking
+        Write-Host "`n--- Enhanced Form Search ---" -ForegroundColor Yellow
         
-        # Method 1: Check specific variable names (prioritize mainForm since that's what the designer creates)
+        # Method 1: Check specific variable names (prioritize expected names)
         $formVariableNames = @(
-            'mainForm',                    # This is what your designer creates
-            'AI_Gen_Workflow_Wrapper',     # This is what the fix should create
-            'AI_Gen_Workflow_WrapperForm',
-            'MainForm', 
+            'AI_Gen_Workflow_Wrapper',     # This should be created by our alias
+            'mainForm',                    # This is what the designer creates
+            'MainForm',                    # Backup alias we created
             'form', 
-            'Form1',
-            'wrapper',
-            'Wrapper'
+            'Form1'
         )
         
         $formFound = $false
@@ -256,107 +297,127 @@ if ($loadSuccess) {
             foreach ($scope in @("Global", "Script", "Local")) {
                 $formVar = Get-Variable -Name $varName -Scope $scope -ErrorAction SilentlyContinue
                 if ($formVar -and $formVar.Value -and $formVar.Value.GetType().Name -like "*Form*") {
-                    Write-Host "✓ Found form in $scope scope: $varName ($($formVar.Value.GetType().Name))" -ForegroundColor Green
-                    Write-Host "  Form Text: '$($formVar.Value.Text)'" -ForegroundColor Cyan
-                    Write-Host "  Form Size: $($formVar.Value.Size)" -ForegroundColor Cyan
-                    Write-Log "Application started successfully with form: $varName from $scope scope" -Level "INFO"
                     
-                    # Show the main form
-                    Write-Host "  Showing main form..." -ForegroundColor Green
-                    $result = $formVar.Value.ShowDialog()
-                    Write-Host "  Form closed with result: $result" -ForegroundColor Cyan
-                    Write-Log "Form closed with result: $result" -Level "INFO"
-                    $formFound = $true
-                    break
+                    # Validate the form is not disposed
+                    try {
+                        $isDisposed = $formVar.Value.IsDisposed
+                        if ($isDisposed) {
+                            Write-Host "  Form $varName in $scope scope is disposed, skipping..." -ForegroundColor Yellow
+                            continue
+                        }
+                        
+                        # Validate the form has essential properties
+                        $formText = $formVar.Value.Text
+                        $formSize = $formVar.Value.Size
+                        
+                        Write-Host "✓ Found valid form in $scope scope: $varName ($($formVar.Value.GetType().Name))" -ForegroundColor Green
+                        Write-Host "  Form Text: '$formText'" -ForegroundColor Cyan
+                        Write-Host "  Form Size: $formSize" -ForegroundColor Cyan
+                        Write-Log "Application started successfully with form: $varName from $scope scope" -Level "INFO"
+                        
+                        # Show the main form
+                        Write-Host "  Showing main form..." -ForegroundColor Green
+                        $result = $formVar.Value.ShowDialog()
+                        Write-Host "  Form closed with result: $result" -ForegroundColor Cyan
+                        Write-Log "Form closed with result: $result" -Level "INFO"
+                        $formFound = $true
+                        break
+                        
+                    } catch {
+                        Write-Host "  Error validating form $varName in $scope scope: $_" -ForegroundColor Red
+                        Write-Log "Error validating form $varName`: $_" -Level "ERROR"
+                        continue
+                    }
                 }
             }
             if ($formFound) { break }
         }
         
         if (-not $formFound) {
-            # Method 2: Search all variables for forms
-            Write-Host "`n--- Searching ALL Variables for Forms ---" -ForegroundColor Yellow
+            # Method 2: Search all variables for valid forms
+            Write-Host "`n--- Searching ALL Variables for Valid Forms ---" -ForegroundColor Yellow
             
             $allVars = Get-Variable | Where-Object { 
                 $_.Value -and $_.Value.GetType().Name -like "*Form*" 
             }
             
             if ($allVars) {
-                Write-Host "Found form variables:" -ForegroundColor Cyan
+                Write-Host "Found form variables, validating..." -ForegroundColor Cyan
                 foreach ($var in $allVars) {
-                    Write-Host "  - $($var.Name) = $($var.Value.GetType().Name)" -ForegroundColor Gray
                     try {
-                        Write-Host "    Text: '$($var.Value.Text)'" -ForegroundColor Gray
-                        Write-Host "    Size: $($var.Value.Size)" -ForegroundColor Gray
+                        $isDisposed = $var.Value.IsDisposed
+                        $formText = $var.Value.Text
+                        $statusText = if ($isDisposed) { "DISPOSED" } else { "VALID" }
+                        Write-Host "  - $($var.Name) = $($var.Value.GetType().Name) [$statusText] '$formText'" -ForegroundColor $(if ($isDisposed) { "Red" } else { "Gray" })
+                        
+                        if (-not $isDisposed) {
+                            Write-Host "✓ Using valid form: $($var.Name) ($($var.Value.GetType().Name))" -ForegroundColor Yellow
+                            Write-Log "Using discovered valid form: $($var.Name)" -Level "INFO"
+                            
+                            $result = $var.Value.ShowDialog()
+                            Write-Log "Form closed with result: $result" -Level "INFO"
+                            $formFound = $true
+                            break
+                        }
                     } catch {
-                        Write-Host "    (Cannot read form properties)" -ForegroundColor Gray
+                        Write-Host "  - $($var.Name) = ERROR: $_" -ForegroundColor Red
                     }
                 }
-                
-                # Use the first form we find
-                $firstForm = $allVars | Select-Object -First 1
-                Write-Host "✓ Using discovered form: $($firstForm.Name) ($($firstForm.Value.GetType().Name))" -ForegroundColor Yellow
-                Write-Log "Using discovered form: $($firstForm.Name)" -Level "INFO"
-                
-                $result = $firstForm.Value.ShowDialog()
-                Write-Log "Form closed with result: $result" -Level "INFO"
-                $formFound = $true
             }
         }
         
         if (-not $formFound) {
-            # Method 3: Create a diagnostic test form
-            Write-Host "`n--- Creating Diagnostic Test Form ---" -ForegroundColor Yellow
-            Write-Log "No form found - creating diagnostic test form" -Level "WARNING"
+            # Method 3: Create a diagnostic form explaining the issue
+            Write-Host "`n--- Creating Diagnostic Form ---" -ForegroundColor Yellow
+            Write-Log "No valid form found - creating diagnostic form" -Level "WARNING"
             
-            $testForm = New-Object System.Windows.Forms.Form
-            $testForm.Text = "AI Gen Workflow Wrapper - Diagnostic"
-            $testForm.Size = New-Object System.Drawing.Size(500, 350)
-            $testForm.StartPosition = "CenterScreen"
-            $testForm.FormBorderStyle = "FixedDialog"
-            $testForm.MaximizeBox = $false
+            $diagForm = New-Object System.Windows.Forms.Form
+            $diagForm.Text = "AI Gen Workflow Wrapper - Diagnostic"
+            $diagForm.Size = New-Object System.Drawing.Size(600, 400)
+            $diagForm.StartPosition = "CenterScreen"
+            $diagForm.FormBorderStyle = "FixedDialog"
+            $diagForm.MaximizeBox = $false
             
             # Main label
-            $label = New-Object System.Windows.Forms.Label
-            $label.Text = "DIAGNOSTIC MODE - Form Designer Issue Detected"
-            $label.Font = New-Object System.Drawing.Font("Arial", 12, [System.Drawing.FontStyle]::Bold)
-            $label.Location = New-Object System.Drawing.Point(20, 20)
-            $label.Size = New-Object System.Drawing.Size(450, 30)
-            $label.ForeColor = [System.Drawing.Color]::Red
-            $testForm.Controls.Add($label)
+            $titleLabel = New-Object System.Windows.Forms.Label
+            $titleLabel.Text = "DIAGNOSTIC: Form Loading Issue"
+            $titleLabel.Font = New-Object System.Drawing.Font("Arial", 14, [System.Drawing.FontStyle]::Bold)
+            $titleLabel.Location = New-Object System.Drawing.Point(20, 20)
+            $titleLabel.Size = New-Object System.Drawing.Size(550, 30)
+            $titleLabel.ForeColor = [System.Drawing.Color]::Red
+            $diagForm.Controls.Add($titleLabel)
             
             # Instructions
             $instructions = New-Object System.Windows.Forms.Label
             $instructions.Text = @"
-The main form was not created properly by the designer file.
+The main form was not created properly or is disposed.
 
-Possible solutions:
-1. Check AI_Gen_Workflow_Wrapper.designer.ps1 for syntax errors
-2. Ensure the designer file creates a form variable
-3. Add the fix code to the end of the designer file:
+Possible causes:
+• Designer file didn't create the mainForm variable
+• Form was disposed before ShowDialog() was called
+• Variable scope issues between designer and main logic
 
-   `$AI_Gen_Workflow_Wrapper = `$mainForm
-   `$Global:AI_Gen_Workflow_Wrapper = `$mainForm
-   `$Global:MainForm = `$mainForm
+Check the console output and log file for detailed information.
 
-Check the console output and log file for more details.
+Log file location:
+$Global:LogFile
 "@
             $instructions.Location = New-Object System.Drawing.Point(20, 60)
-            $instructions.Size = New-Object System.Drawing.Size(450, 200)
+            $instructions.Size = New-Object System.Drawing.Size(550, 250)
             $instructions.Font = New-Object System.Drawing.Font("Arial", 9)
-            $testForm.Controls.Add($instructions)
+            $diagForm.Controls.Add($instructions)
             
             # Buttons
             $okButton = New-Object System.Windows.Forms.Button
             $okButton.Text = "OK"
-            $okButton.Location = New-Object System.Drawing.Point(300, 280)
+            $okButton.Location = New-Object System.Drawing.Point(400, 330)
             $okButton.Size = New-Object System.Drawing.Size(75, 30)
             $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
-            $testForm.Controls.Add($okButton)
+            $diagForm.Controls.Add($okButton)
             
             $logButton = New-Object System.Windows.Forms.Button
             $logButton.Text = "Open Log"
-            $logButton.Location = New-Object System.Drawing.Point(200, 280)
+            $logButton.Location = New-Object System.Drawing.Point(300, 330)
             $logButton.Size = New-Object System.Drawing.Size(85, 30)
             $logButton.Add_Click({
                 if (Test-Path $Global:LogFile) {
@@ -365,13 +426,13 @@ Check the console output and log file for more details.
                     [System.Windows.Forms.MessageBox]::Show("Log file not found: $Global:LogFile", "Log File", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
                 }
             })
-            $testForm.Controls.Add($logButton)
+            $diagForm.Controls.Add($logButton)
             
-            $testForm.AcceptButton = $okButton
+            $diagForm.AcceptButton = $okButton
             
-            Write-Host "✓ Showing diagnostic form (main form creation failed)" -ForegroundColor Yellow
-            $testForm.ShowDialog()
-            $testForm.Dispose()
+            Write-Host "✓ Showing diagnostic form (main form issue detected)" -ForegroundColor Yellow
+            $diagForm.ShowDialog()
+            $diagForm.Dispose()
         }
         
     }
