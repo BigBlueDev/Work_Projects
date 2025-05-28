@@ -73,6 +73,7 @@
     </Compile>
     <Compile Include="Globals.ps1" />
     <Compile Include="MigrateToNestedStructure.ps1" />
+    <Compile Include="ModuleManager.ps1" />
     <Compile Include="PathManager.ps1" />
   </ItemGroup>
   <ItemGroup>

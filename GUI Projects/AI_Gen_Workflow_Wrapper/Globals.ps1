@@ -289,6 +289,29 @@ function Get-ScriptParameters {
 #endregion
 
 #region UI Helper Functions
+function Show-ModuleStatus {
+    <#
+    .SYNOPSIS
+        Displays current module status for troubleshooting
+    #>
+    
+    if (Get-Command "Get-ModuleStatus" -ErrorAction SilentlyContinue) {
+        $modules = @("PowerShellGet", "PackageManagement", "ImportExcel", "PSWriteHTML")
+        $statusReport = Get-ModuleStatus -ModuleNames $modules
+        
+        Write-Host "`n=== Module Status Report ===" -ForegroundColor Cyan
+        foreach ($module in $statusReport) {
+            $status = if ($module.IsImported) { "? Imported" } elseif ($module.IsInstalled) { "? Installed" } else { "? Missing" }
+            $version = if ($module.ImportedVersion) { "v$($module.ImportedVersion)" } elseif ($module.InstalledVersion) { "v$($module.InstalledVersion)" } else { "N/A" }
+            
+            Write-Host "$($module.ModuleName): $status ($version)" -ForegroundColor $(
+                if ($module.IsImported) { "Green" } elseif ($module.IsInstalled) { "Yellow" } else { "Red" }
+            )
+        }
+    } else {
+        Write-Warning "ModuleManager not available - cannot show module status"
+    }
+}
 
 function Update-ScriptsListView {
     <#

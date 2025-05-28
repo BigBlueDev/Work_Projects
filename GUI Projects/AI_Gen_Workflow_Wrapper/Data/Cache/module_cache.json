@@ -1,0 +1,24 @@
+{
+  "PackageManagement|1.4.0": {
+    "ModuleName": "PackageManagement",
+    "LastChecked": "2025-05-28T09:40:38.1411239-04:00",
+    "IsImported": false,
+    "MinVersion": "1.4.0",
+    "IsInstalled": true,
+    "Source": "User",
+    "ImportedVersion": null,
+    "CanImport": true,
+    "InstalledVersion": "1.4.8.1"
+  },
+  "PowerShellGet|2.0.0": {
+    "ModuleName": "PowerShellGet",
+    "LastChecked": "2025-05-28T09:40:37.5527529-04:00",
+    "IsImported": false,
+    "MinVersion": "2.0.0",
+    "IsInstalled": true,
+    "Source": "System",
+    "ImportedVersion": null,
+    "CanImport": true,
+    "InstalledVersion": "2.2.5"
+  }
+}

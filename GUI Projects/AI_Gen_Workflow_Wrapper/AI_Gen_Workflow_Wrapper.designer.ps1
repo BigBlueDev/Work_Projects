@@ -1044,3 +1044,15 @@ Add-Member -InputObject $mainForm -Name openFileDialog1 -Value $openFileDialog1 
 Add-Member -InputObject $mainForm -Name btnHelp -Value $btnHelp -MemberType NoteProperty
 }
 . InitializeComponent
+
+
+# ADD THE FIX CODE HERE - AFTER the InitializeComponent call
+$AI_Gen_Workflow_Wrapper = $mainForm
+$Global:AI_Gen_Workflow_Wrapper = $mainForm
+$Global:MainForm = $mainForm
+
+# Debug output
+Write-Host "Designer: Form created successfully as 'mainForm'" -ForegroundColor Green
+Write-Host "Designer: Form also available as 'AI_Gen_Workflow_Wrapper'" -ForegroundColor Green
+Write-Host "Designer: Form type is $($mainForm.GetType().Name)" -ForegroundColor Cyan
+Write-Host "Designer: Form text is '$($mainForm.Text)'" -ForegroundColor Gray
