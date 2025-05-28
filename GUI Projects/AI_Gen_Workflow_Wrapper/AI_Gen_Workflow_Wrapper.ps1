@@ -1,3 +1,5 @@
+$btnTestSourceConnection_Click = {
+}
 <#
 .SYNOPSIS
     vCenter Migration Workflow Manager - Core Functionality Wrapper
@@ -517,6 +519,79 @@ function Update-UIState {
     }
 }
 
+# Enhanced Test Connection function with proper user feedback
+function Test-ConnectionWithFeedback {
+    param(
+        [string]$ServerName,
+        [string]$ConnectionType = "Unknown",
+        [int]$TimeoutSeconds = 5,
+        [System.Windows.Forms.Button]$Button
+    )
+    
+    try {
+        # Show that testing is in progress
+        $originalText = $Button.Text
+        $Button.Enabled = $false
+        $Button.Text = "Testing..."
+        $mainForm.Refresh()
+        
+        Write-Log "Testing $ConnectionType connection to: $ServerName" -Level "INFO"
+        
+        if ([string]::IsNullOrWhiteSpace($ServerName)) {
+            throw "Server name cannot be empty"
+        }
+        
+        # Perform the actual test (using Test-NetConnection for port 443 - vCenter default)
+        Write-Host "Testing connection to $ServerName..." -ForegroundColor Yellow
+        $testResult = Test-NetConnection -ComputerName $ServerName -Port 443 -InformationLevel Quiet -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+        
+        if ($testResult) {
+            $message = "✓ $ConnectionType connection to '$ServerName' successful!`n`nPort 443 (HTTPS) is accessible."
+            Write-Log "$ConnectionType connection test successful: $ServerName" -Level "INFO"
+            
+            [System.Windows.Forms.MessageBox]::Show(
+                $message,
+                "$ConnectionType Connection Test - Success",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            
+            return $true
+        } else {
+            $message = "✗ $ConnectionType connection to '$ServerName' failed!`n`nPort 443 (HTTPS) is not accessible.`n`nPlease check:`n• Server name/IP is correct`n• vCenter server is running`n• Firewall allows port 443`n• Network connectivity"
+            Write-Log "$ConnectionType connection test failed: $ServerName" -Level "WARNING"
+            
+            [System.Windows.Forms.MessageBox]::Show(
+                $message,
+                "$ConnectionType Connection Test - Failed",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            
+            return $false
+        }
+        
+    } catch {
+        $errorMessage = "Error testing $ConnectionType connection: $($_.Exception.Message)"
+        Write-Log $errorMessage -Level "ERROR"
+        
+        [System.Windows.Forms.MessageBox]::Show(
+            "$ConnectionType Connection Test Error:`n`n$errorMessage",
+            "$ConnectionType Connection Test - Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+        
+        return $false
+        
+    } finally {
+        # Reset button state
+        $Button.Enabled = $true
+        $Button.Text = $originalText
+        $mainForm.Refresh()
+    }
+}
+
 function Test-FormValidation {
     <#
     .SYNOPSIS
@@ -699,30 +774,116 @@ $lvParameters_SelectedIndexChanged = {
 
 #region Connection Management
 
+# Test Source Connection Button Click Event
 $btnTestSourceConnection_Click = {
     try {
-        Write-Log "Testing source vCenter connection..." -Level "INFO"
-        Invoke-TestSourceConnection
+        Write-Log "Test Source Connection button clicked" -Level "DEBUG"
+        
+        # Get source server name from text box
+        $serverName = ""
+        
+        # Try to get server name from possible source text boxes
+        if ($script:txtSourceServer -and $script:txtSourceServer.Text) {
+            $serverName = $script:txtSourceServer.Text.Trim()
+        } elseif ($script:txtSourceVCenter -and $script:txtSourceVCenter.Text) {
+            $serverName = $script:txtSourceVCenter.Text.Trim()
+        } elseif ($script:sourceServerTextBox -and $script:sourceServerTextBox.Text) {
+            $serverName = $script:sourceServerTextBox.Text.Trim()
+        } else {
+            # Check all text boxes to find the source server field
+            $possibleSourceControls = @(
+                'txtSourceServer', 'txtSourceVCenter', 'txtSource', 'sourceServerTextBox',
+                'txtOriginServer', 'txtSrcVCenter', 'txtSrc'
+            )
+            
+            foreach ($controlName in $possibleSourceControls) {
+                $control = Get-Variable -Name $controlName -Scope Script -ErrorAction SilentlyContinue
+                if ($control -and $control.Value -and $control.Value.Text) {
+                    $serverName = $control.Value.Text.Trim()
+                    Write-Log "Found source server in control: $controlName" -Level "DEBUG"
+                    break
+                }
+            }
+        }
+        
+        if ([string]::IsNullOrWhiteSpace($serverName)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please enter the source vCenter server name or IP address first.",
+                "No Source Server Specified",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            return
+        }
+        
+        # Perform the connection test
+        Test-ConnectionWithFeedback -ServerName $serverName -ConnectionType "Source vCenter" -Button $btnTestSourceConnection
+        
     } catch {
-        Write-Log "Error in source connection test button: $($_.Exception.Message)" -Level "ERROR"
+        $errorMessage = "Error in Test Source Connection handler: $($_.Exception.Message)"
+        Write-Log $errorMessage -Level "ERROR"
+        
         [System.Windows.Forms.MessageBox]::Show(
-            "Error testing source connection: $($_.Exception.Message)",
-            "Connection Test Error",
+            $errorMessage,
+            "Test Source Connection Error",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Error
         )
     }
 }
 
+# Test Target Connection Button Click Event
 $btnTestTargetConnection_Click = {
     try {
-        Write-Log "Testing target vCenter connection..." -Level "INFO"
-        Invoke-TestTargetConnection
+        Write-Log "Test Target Connection button clicked" -Level "DEBUG"
+        
+        # Get target server name from text box (adjust the control name as needed)
+        $serverName = ""
+        
+        # Try to get server name from possible target text boxes
+        if ($script:txtTargetServer -and $script:txtTargetServer.Text) {
+            $serverName = $script:txtTargetServer.Text.Trim()
+        } elseif ($script:txtTargetVCenter -and $script:txtTargetVCenter.Text) {
+            $serverName = $script:txtTargetVCenter.Text.Trim()
+        } elseif ($script:targetServerTextBox -and $script:targetServerTextBox.Text) {
+            $serverName = $script:targetServerTextBox.Text.Trim()
+        } else {
+            # Check all text boxes to find the target server field
+            $possibleTargetControls = @(
+                'txtTargetServer', 'txtTargetVCenter', 'txtTarget', 'targetServerTextBox',
+                'txtDestinationServer', 'txtDestVCenter', 'txtDest'
+            )
+            
+            foreach ($controlName in $possibleTargetControls) {
+                $control = Get-Variable -Name $controlName -Scope Script -ErrorAction SilentlyContinue
+                if ($control -and $control.Value -and $control.Value.Text) {
+                    $serverName = $control.Value.Text.Trim()
+                    Write-Log "Found target server in control: $controlName" -Level "DEBUG"
+                    break
+                }
+            }
+        }
+        
+        if ([string]::IsNullOrWhiteSpace($serverName)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please enter the target vCenter server name or IP address first.",
+                "No Target Server Specified",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            return
+        }
+        
+        # Perform the connection test
+        Test-ConnectionWithFeedback -ServerName $serverName -ConnectionType "Target vCenter" -Button $btnTestTargetConnection
+        
     } catch {
-        Write-Log "Error in target connection test button: $($_.Exception.Message)" -Level "ERROR"
+        $errorMessage = "Error in Test Target Connection handler: $($_.Exception.Message)"
+        Write-Log $errorMessage -Level "ERROR"
+        
         [System.Windows.Forms.MessageBox]::Show(
-            "Error testing target connection: $($_.Exception.Message)",
-            "Connection Test Error",
+            $errorMessage,
+            "Test Target Connection Error",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Error
         )
