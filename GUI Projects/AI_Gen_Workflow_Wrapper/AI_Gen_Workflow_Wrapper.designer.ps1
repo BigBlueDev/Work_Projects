@@ -1048,8 +1048,9 @@ Add-Member -InputObject $mainForm -Name btnExit -Value $btnExit -MemberType Note
 Add-Member -InputObject $mainForm -Name openFileDialog1 -Value $openFileDialog1 -MemberType NoteProperty
 Add-Member -InputObject $mainForm -Name btnHelp -Value $btnHelp -MemberType NoteProperty
 }
+. InitializeComponent
 [System.Object]$AI_Gen_Workflow_Wrapper = $null
 [System.Object]$Global:AI_Gen_Workflow_Wrapper = $null
 [System.Object]$Global:MainForm = $null
-. InitializeComponent
+
 
