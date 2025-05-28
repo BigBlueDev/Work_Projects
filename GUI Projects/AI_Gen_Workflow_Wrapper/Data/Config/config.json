@@ -1,0 +1,26 @@
+{
+  "UI": {
+    "WindowHeight": 600,
+    "Theme": "Default",
+    "WindowWidth": 800
+  },
+  "Scripts": {
+    "DefaultDirectory": "C:\\Users\\DMM0090\\OneDrive - Defense Logistics Agency\\Documents\\All Scripts\\Work_Projects\\GUI Projects\\AI_Gen_Workflow_Wrapper",
+    "AllowedExtensions": [
+      ".ps1",
+      ".bat",
+      ".cmd"
+    ]
+  },
+  "Paths": {
+    "DataDirectory": "C:\\Users\\DMM0090\\OneDrive - Defense Logistics Agency\\Documents\\All Scripts\\Work_Projects\\GUI Projects\\AI_Gen_Workflow_Wrapper\\Data\\",
+    "LogDirectory": "C:\\Users\\DMM0090\\OneDrive - Defense Logistics Agency\\Documents\\All Scripts\\Work_Projects\\GUI Projects\\AI_Gen_Workflow_Wrapper\\Data\\Logs\\",
+    "ConfigDirectory": "C:\\Users\\DMM0090\\OneDrive - Defense Logistics Agency\\Documents\\All Scripts\\Work_Projects\\GUI Projects\\AI_Gen_Workflow_Wrapper\\Data\\Config\\"
+  },
+  "Application": {
+    "Name": "AI Gen Workflow Wrapper",
+    "LogLevel": "INFO",
+    "Version": "1.0.0",
+    "AutoSave": true
+  }
+}
