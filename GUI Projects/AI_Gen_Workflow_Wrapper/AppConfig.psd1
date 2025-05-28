@@ -1,5 +1,5 @@
 # AppConfig.psd1
-# AI Gen Workflow Wrapper - Main Configuration Data File
+# AI Gen Workflow Wrapper - Simplified Configuration for Flat Structure
 
 @{
     # Application metadata
@@ -9,41 +9,43 @@
         Author = 'Your Name'
         Description = 'PowerShell GUI wrapper for AI-generated workflows'
         Copyright = '(c) 2025. All rights reserved.'
-        LastModified = '2025-01-27'
+        LastModified = '2025-01-28'
     }
 
-    # Path configuration - relative to application root
+    # Path configuration - simplified for flat structure
     Paths = @{
-        # Core directories
+        # Core directories - all forms are in root
         Root = ''                    # Application root (auto-detected)
-        Forms = ''                   # Form files (currently in root)
-        SubForms = ''               # Sub-form files (currently in root)  
         
-        # Data directories
-        Config = 'Config'           # Configuration files
-        Logs = 'Logs'               # Log files
+        # Main data directory with organized subdirectories
         Data = 'Data'               # General data storage
         Resources = 'Resources'     # Images, icons, etc.
         
-        # Specialized data directories
-        Temp = 'Data\Temp'          # Temporary files
-        Reports = 'Data\Reports'    # Generated reports
+        # Organized data subdirectories
+        Config = 'Data\Config'      # Configuration files
+        Logs = 'Data\Logs'          # Log files
+        Scripts = 'Data\Scripts'    # User script storage
         Exports = 'Data\Exports'    # Exported configurations
         Imports = 'Data\Imports'    # Import staging area
         Backups = 'Data\Backups'    # Backup files
-        Scripts = 'Data\Scripts'    # User script storage
+        Reports = 'Data\Reports'    # Generated reports
+        Temp = 'Data\Temp'          # Temporary files
+        Cache = 'Data\Cache'        # Application cache
     }
 
-    # File naming patterns with token substitution
+    # File naming patterns - all in root directory
     FilePatterns = @{
-        # Form files
-        MainForm = 'AI_Gen_Workflow_Wrapper'
-        EditForm = 'EditParam'
+        # Form files (all in root)
+        MainFormDesigner = 'AI_Gen_Workflow_Wrapper.designer.ps1'
+        MainFormLogic = 'AI_Gen_Workflow_Wrapper.ps1'
+        EditFormDesigner = 'EditParam.designer.ps1'
+        EditFormLogic = 'EditParam.ps1'
         
         # Configuration files
         ConfigFile = 'config.json'
         SettingsFile = 'settings.json'
         UserPrefs = 'userprefs.json'
+        AppState = 'appstate.json'
         
         # Log files with date patterns
         LogFile = 'application_{date}.log'
@@ -54,6 +56,7 @@
         ExportFile = 'export_{timestamp}.json'
         BackupFile = 'backup_{date}.zip'
         ScriptCache = 'script_cache.json'
+        SavedScripts = 'saved_scripts.json'
     }
 
     # File extension mappings
@@ -63,6 +66,7 @@
         Logs = @('.log', '.txt')
         Archives = @('.zip', '.7z', '.tar')
         Images = @('.png', '.jpg', '.jpeg', '.gif', '.ico')
+        Config = @('.json', '.xml', '.psd1')
     }
 
     # UI Configuration
@@ -79,6 +83,8 @@
         FontSize = 9
         AutoSave = $true
         AutoSaveIntervalSeconds = 300
+        ShowTooltips = $true
+        ConfirmOnExit = $false
     }
 
     # Logging configuration
@@ -89,6 +95,7 @@
         MaxLogFileSizeMB = 10
         MaxLogFiles = 5
         DateFormat = 'yyyy-MM-dd HH:mm:ss'
+        RotateLogsOnStartup = $false
     }
 
     # Script execution settings
@@ -98,22 +105,32 @@
         CaptureOutput = $true
         LogExecution = $true
         AllowedExecutionPolicies = @('RemoteSigned', 'Unrestricted')
+        MaxConcurrentScripts = 3
     }
 
-    # Feature flags for future functionality
+    # Feature flags
     Features = @{
         EnableScriptValidation = $true
         EnableParameterValidation = $true
         EnableAutoBackup = $true
         EnableUpdateCheck = $false
         EnableTelemetry = $false
+        EnableScriptCache = $true
+        EnableRecentScripts = $true
     }
 
-    # Migration settings for future structure changes
-    Migration = @{
-        ConfigVersion = '1.0'
-        LastMigration = $null
-        BackupBeforeMigration = $true
-        MigrationScriptPath = 'Migration\MigrationScripts'
+    # Directory settings
+    DirectorySettings = @{
+        EnsureDirectoriesOnStartup = $true
+        CreateMissingDirectories = $true
+        ValidatePermissions = $true
+        RequiredDirectories = @(
+            'Data'
+            'Data\Config'
+            'Data\Logs' 
+            'Data\Scripts'
+            'Data\Temp'
+            'Resources'
+        )
     }
 }

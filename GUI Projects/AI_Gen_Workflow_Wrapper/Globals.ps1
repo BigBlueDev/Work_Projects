@@ -601,7 +601,7 @@ function Update-ParametersListView {
 function Show-EditParameterDialog {
     <#
     .SYNOPSIS
-        Enhanced parameter editing with validation
+        Load EditParam form directly from root directory
     #>
     param(
         [string]$ParameterName = "",
@@ -612,21 +612,20 @@ function Show-EditParameterDialog {
     )
     
     try {
-        # Load EditParam form using PathManager
-        $designerPath = Get-AppFileFromPattern -PathName "SubForms" -PatternName "EditForm"
-        $designerPath += ".designer.ps1"
+        # Load EditParam files directly from root using patterns
+        $designerFile = Get-AppConfig -ConfigPath "FilePatterns.EditFormDesigner"
+        $logicFile = Get-AppConfig -ConfigPath "FilePatterns.EditFormLogic"
         
-        $logicPath = Get-AppFileFromPattern -PathName "SubForms" -PatternName "EditForm"  
-        $logicPath += ".ps1"
+        $designerPath = Get-AppFilePath -PathName "Root" -FileName $designerFile -EnsureDirectory $false
+        $logicPath = Get-AppFilePath -PathName "Root" -FileName $logicFile -EnsureDirectory $false
         
         Write-Log "Loading EditParam form: Designer=$designerPath, Logic=$logicPath" -Level "DEBUG"
         
         if (Test-Path $designerPath) { . $designerPath }
         if (Test-Path $logicPath) { . $logicPath }
         
-        # Find the form variable
-        $formPattern = Get-AppConfig -ConfigPath "FilePatterns.EditForm"
-        $possibleNames = @($formPattern, $formPattern.ToLower(), "$($formPattern)Form", "form$formPattern")
+        # Find the EditParam form variable
+        $possibleNames = @('EditParam', 'editParam', 'EditParamForm', 'formEditParam')
         $editForm = $null
         
         foreach ($name in $possibleNames) {
@@ -652,26 +651,15 @@ function Show-EditParameterDialog {
         }
         else {
             Write-Log "EditParam form not found. Tried: $($possibleNames -join ', ')" -Level "WARNING"
-            [System.Windows.Forms.MessageBox]::Show(
-                "Parameter editing form could not be loaded.",
-                "Form Load Error",
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Warning
-            )
             return [System.Windows.Forms.DialogResult]::Cancel
         }
         
     } catch {
         Write-Log "Error loading EditParam form: $($_.Exception.Message)" -Level "ERROR"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Error loading parameter editing form: $($_.Exception.Message)",
-            "Form Load Error", 
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
         return [System.Windows.Forms.DialogResult]::Cancel
     }
 }
+
 
 #endregion
 

@@ -1,21 +1,21 @@
 # Launch.ps1
-# Future-proof entry point using .psd1 configuration
+# Simplified entry point for flat file structure
 
 # Load required assemblies
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Load the enhanced path manager
+# Load the path manager
 $pathManagerScript = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Definition) "PathManager.ps1"
 if (-not (Test-Path $pathManagerScript)) {
     throw "Critical Error: PathManager.ps1 not found at $pathManagerScript"
 }
 . $pathManagerScript
 
-# Initialize path management with .psd1 config
+# Initialize path management
 Initialize-AppPaths
 
-# Display application info from config
+# Display application info
 $appInfo = Get-AppConfig -ConfigPath "ApplicationInfo"
 Write-Host "=== $($appInfo.Name) v$($appInfo.Version) ===" -ForegroundColor Green
 Write-Host "Root Directory: $(Get-AppPath -PathName 'Root')" -ForegroundColor Cyan
@@ -32,12 +32,7 @@ foreach ($createdPath in $pathValidation.Created) {
     Write-Host "➕ Created $($createdPath.Name): $($createdPath.Path)" -ForegroundColor Yellow
 }
 
-foreach ($errorPath in $pathValidation.Errors) {
-    Write-Host "✗ Error $($errorPath.Name): $($errorPath.Error)" -ForegroundColor Red
-}
-
-# Initialize logging using config
-$loggingConfig = Get-AppConfig -ConfigPath "Logging"
+# Initialize logging
 $Global:LogFile = Get-AppFileFromPattern -PathName "Logs" -PatternName "LogFile"
 
 function Write-Log {
@@ -47,45 +42,38 @@ function Write-Log {
         [string]$Level = "INFO"
     )
     
-    $logLevel = Get-AppConfig -ConfigPath "Logging.DefaultLevel" -DefaultValue "INFO"
-    $enableFile = Get-AppConfig -ConfigPath "Logging.EnableFileLogging" -DefaultValue $true
-    $enableConsole = Get-AppConfig -ConfigPath "Logging.EnableConsoleLogging" -DefaultValue $true
-    
     $dateFormat = Get-AppConfig -ConfigPath "Logging.DateFormat" -DefaultValue "yyyy-MM-dd HH:mm:ss"
     $timestamp = Get-Date -Format $dateFormat
     $logEntry = "[$timestamp] [$Level] $Message"
     
-    if ($enableFile) {
-        try {
-            Add-Content -Path $Global:LogFile -Value $logEntry -ErrorAction SilentlyContinue
-        } catch { }
-    }
+    # File logging
+    try {
+        Add-Content -Path $Global:LogFile -Value $logEntry -ErrorAction SilentlyContinue
+    } catch { }
     
-    if ($enableConsole) {
-        switch ($Level) {
-            "DEBUG" { Write-Host $logEntry -ForegroundColor Gray }
-            "INFO" { Write-Host $logEntry -ForegroundColor White }
-            "WARNING" { Write-Host $logEntry -ForegroundColor Yellow }
-            "ERROR" { Write-Host $logEntry -ForegroundColor Red }
-            "CRITICAL" { Write-Host $logEntry -ForegroundColor Magenta }
-        }
+    # Console logging
+    switch ($Level) {
+        "DEBUG" { Write-Host $logEntry -ForegroundColor Gray }
+        "INFO" { Write-Host $logEntry -ForegroundColor White }
+        "WARNING" { Write-Host $logEntry -ForegroundColor Yellow }
+        "ERROR" { Write-Host $logEntry -ForegroundColor Red }
+        "CRITICAL" { Write-Host $logEntry -ForegroundColor Magenta }
     }
 }
 
 Write-Log "Application initialization started" -Level "INFO"
 
-# Load application components using patterns from config
+# Load application components directly from root
 Write-Host "`n--- Loading Application Components ---" -ForegroundColor Cyan
 
-function Import-AppComponent {
+function Import-RootFile {
     param(
-        [string]$PathName,
         [string]$PatternName,
         [string]$Description
     )
     
-    $filePath = Get-AppFileFromPattern -PathName $PathName -PatternName $PatternName
-    $filePath += ".designer.ps1"  # Add extension
+    $fileName = Get-AppConfig -ConfigPath "FilePatterns.$PatternName"
+    $filePath = Get-AppFilePath -PathName "Root" -FileName $fileName -EnsureDirectory $false
     
     Write-Host "Loading $Description`: " -NoNewline -ForegroundColor Yellow
     Write-Host $filePath -ForegroundColor White
@@ -107,37 +95,80 @@ function Import-AppComponent {
     }
 }
 
-# Load components using config patterns
+# Load form components from root directory
 $loadSuccess = $true
-$loadSuccess = $loadSuccess -and (Import-AppComponent -PathName "Forms" -PatternName "MainForm" -Description "Form Designer")
-
-# Load main logic
-$mainLogicPath = Get-AppFileFromPattern -PathName "Forms" -PatternName "MainForm"
-$mainLogicPath += ".ps1"
-if (Test-Path $mainLogicPath) {
-    . $mainLogicPath
-    Write-Host "✓ Successfully loaded Core Application Logic" -ForegroundColor Green
-} else {
-    Write-Error "✗ Core application logic not found: $mainLogicPath"
-    $loadSuccess = $false
-}
+$loadSuccess = $loadSuccess -and (Import-RootFile -PatternName "MainFormDesigner" -Description "Form Designer")
+$loadSuccess = $loadSuccess -and (Import-RootFile -PatternName "MainFormLogic" -Description "Core Application Logic")
 
 # Start application
 if ($loadSuccess) {
     Write-Host "`n--- Starting Application ---" -ForegroundColor Cyan
     
-    $mainFormPattern = Get-AppConfig -ConfigPath "FilePatterns.MainForm"
-    if (Get-Variable -Name $mainFormPattern -ErrorAction SilentlyContinue) {
-        $mainFormVar = Get-Variable -Name $mainFormPattern
-        if ($mainFormVar.Value -and $mainFormVar.Value.GetType().Name -like "*Form*") {
-            Write-Host "✓ Found main form: $mainFormPattern" -ForegroundColor Green
-            Write-Log "Application started successfully" -Level "INFO"
-            [void]$mainFormVar.Value.ShowDialog()
-        } else {
-            throw "Main form variable exists but is not a valid form object"
+    try {
+        # Enhanced form variable detection
+        Write-Host "`n--- Searching for Form Variables ---" -ForegroundColor Yellow
+        
+        $formVariableNames = @(
+            'AI_Gen_Workflow_Wrapper',
+            'mainForm', 
+            'MainForm', 
+            'form', 
+            'Form1'
+        )
+        
+        $formFound = $false
+        foreach ($varName in $formVariableNames) {
+            $formVar = Get-Variable -Name $varName -ErrorAction SilentlyContinue
+            if ($formVar -and $formVar.Value -and $formVar.Value.GetType().Name -like "*Form*") {
+                Write-Host "✓ Found main form: $varName ($($formVar.Value.GetType().Name))" -ForegroundColor Green
+                Write-Log "Application started successfully with form: $varName" -Level "INFO"
+                
+                [void]$formVar.Value.ShowDialog()
+                $formFound = $true
+                break
+            }
         }
-    } else {
-        throw "Main form variable '$mainFormPattern' not found"
+        
+        if (-not $formFound) {
+            # Debug: Show all available variables
+            $allVars = Get-Variable | Where-Object { 
+                $_.Value -and 
+                ($_.Value.GetType().Name -like "*Form*" -or $_.Name -like "*Form*" -or $_.Name -like "*AI_Gen*")
+            }
+            
+            if ($allVars) {
+                Write-Host "Available variables:" -ForegroundColor Cyan
+                foreach ($var in $allVars) {
+                    Write-Host "  - $($var.Name) = $($var.Value.GetType().Name)" -ForegroundColor Gray
+                }
+                
+                # Try the first form we find
+                $firstForm = $allVars | Where-Object { $_.Value.GetType().Name -like "*Form*" } | Select-Object -First 1
+                if ($firstForm) {
+                    Write-Host "✓ Using discovered form: $($firstForm.Name)" -ForegroundColor Yellow
+                    [void]$firstForm.Value.ShowDialog()
+                    $formFound = $true
+                }
+            }
+        }
+        
+        if (-not $formFound) {
+            throw "No form variables found. The form designer may not have loaded correctly."
+        }
+        
+    }
+    catch {
+        $errorMessage = "Application error: $_"
+        Write-Error $errorMessage
+        Write-Log $errorMessage -Level "ERROR"
+        
+        [System.Windows.Forms.MessageBox]::Show(
+            $errorMessage, 
+            "Application Error", 
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+        exit 1
     }
 } else {
     Write-Error "Application failed to load required components"
