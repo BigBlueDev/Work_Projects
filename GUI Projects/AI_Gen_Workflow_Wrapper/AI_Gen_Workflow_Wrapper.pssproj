@@ -63,6 +63,7 @@
     <Compile Include="AI_Gen_Workflow_Wrapper.ps1">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="AppConfig.psd1" />
     <Compile Include="EditParam.designer.ps1">
       <SubType>Code</SubType>
       <DependentUpon>EditParam.ps1</DependentUpon>
@@ -70,7 +71,9 @@
     <Compile Include="EditParam.ps1">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="ValidateStructure.ps1" />
+    <Compile Include="Globals.ps1" />
+    <Compile Include="MigrateToNestedStructure.ps1" />
+    <Compile Include="PathManager.ps1" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="AI_Gen_Workflow_Wrapper.resx">
