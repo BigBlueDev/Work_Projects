@@ -1,5 +1,4 @@
-$btnTestSourceConnection_Click = {
-}
+
 <#
 .SYNOPSIS
     vCenter Migration Workflow Manager - Core Functionality Wrapper
