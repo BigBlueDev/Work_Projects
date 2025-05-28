@@ -17,6 +17,54 @@
 # Ensure strict mode for better error handling
 Set-StrictMode -Version Latest
 
+#region Future-Proof Path Management
+
+# Helper functions using the PathManager
+function Get-ConfigurationFile {
+    return Get-AppFilePathFromPattern -PathName "Config" -PatternName "ConfigFile"
+}
+
+function Get-SettingsFile {
+    return Get-AppFilePathFromPattern -PathName "Config" -PatternName "SettingsFile"
+}
+
+function Get-ExportFile {
+    param([string]$BaseName = "export")
+    return Get-AppFilePath -PathName "Exports" -FileName "$BaseName`_$(Get-Date -Format 'yyyyMMdd_HHmmss').json"
+}
+
+function Get-ImportDirectory {
+    return Get-AppPath -PathName "Imports"
+}
+
+function Show-EditParameterDialog {
+    param(
+        [string]$ParameterName = "",
+        [string]$CurrentValue = "",
+        [string]$ParameterType = "String"
+    )
+    
+    # Load EditParam form using path manager
+    $designerPath = Get-AppFilePath -PathName "SubForms" -FileName "EditParam.designer.ps1" -EnsureDirectory $false
+    $logicPath = Get-AppFilePath -PathName "SubForms" -FileName "EditParam.ps1" -EnsureDirectory $false
+    
+    if (Test-Path $designerPath) { . $designerPath }
+    if (Test-Path $logicPath) { . $logicPath }
+    
+    # Rest of your EditParam logic...
+}
+
+function Initialize-FileDialogs {
+    # Set up file dialogs with proper paths
+    if ($script:openFileDialog1) {
+        $script:openFileDialog1.InitialDirectory = Get-AppPath -PathName "Root"
+    }
+    
+    # Set up other dialogs as needed
+}
+
+#endregion
+
 #region Win32 API and Form Management
 
 # Add Win32 API for enhanced window management

@@ -1,0 +1,7 @@
+{
+  "Paths": {
+    "Forms": "UI\\Forms",
+    "Config": "Configuration", 
+    "Data": "ApplicationData"
+  }
+}
