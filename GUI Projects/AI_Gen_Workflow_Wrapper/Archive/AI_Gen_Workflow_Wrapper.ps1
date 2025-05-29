@@ -1,3 +1,177 @@
+$btnBrowse_Click = {
+    try {
+        Write-Log "Browsing for script file..." -Level "DEBUG"
+        Browse-ScriptFile
+    } 
+    catch {
+        Write-Log "Error in browse button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error browsing for script: $($_.Exception.Message)",
+            "Browse Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnLoadConnection_Click = {
+    try {
+        Write-Log "Loading connection settings..." -Level "INFO"
+        Load-ConnectionSettings
+        [System.Windows.Forms.MessageBox]::Show(
+            "Connection settings loaded successfully!",
+            "Settings Loaded",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+    } 
+    catch {
+        Write-Log "Error loading connection settings: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error loading connection settings: $($_.Exception.Message)",
+            "Load Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnSaveConnection_Click = {
+    try {
+        Write-Log "Saving connection settings..." -Level "INFO"
+        Save-ConnectionSettings
+        [System.Windows.Forms.MessageBox]::Show(
+            "Connection settings saved successfully!",
+            "Settings Saved",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+    } catch {
+        Write-Log "Error saving connection settings: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error saving connection settings: $($_.Exception.Message)",
+            "Save Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnTestTargetConnection_Click = {
+    try {
+        Write-Log "Test Target Connection button clicked" -Level "DEBUG"
+        
+        # Get target server name from text box (adjust the control name as needed)
+        $serverName = ""
+        
+        # Try to get server name from possible target text boxes
+        if ($script:txtTargetServer -and $script:txtTargetServer.Text) {
+            $serverName = $script:txtTargetServer.Text.Trim()
+        } elseif ($script:txtTargetVCenter -and $script:txtTargetVCenter.Text) {
+            $serverName = $script:txtTargetVCenter.Text.Trim()
+        } elseif ($script:targetServerTextBox -and $script:targetServerTextBox.Text) {
+            $serverName = $script:targetServerTextBox.Text.Trim()
+        } else {
+            # Check all text boxes to find the target server field
+            $possibleTargetControls = @(
+                'txtTargetServer', 'txtTargetVCenter', 'txtTarget', 'targetServerTextBox',
+                'txtDestinationServer', 'txtDestVCenter', 'txtDest'
+            )
+            
+            foreach ($controlName in $possibleTargetControls) {
+                $control = Get-Variable -Name $controlName -Scope Script -ErrorAction SilentlyContinue
+                if ($control -and $control.Value -and $control.Value.Text) {
+                    $serverName = $control.Value.Text.Trim()
+                    Write-Log "Found target server in control: $controlName" -Level "DEBUG"
+                    break
+                }
+            }
+        }
+        
+        if ([string]::IsNullOrWhiteSpace($serverName)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please enter the target vCenter server name or IP address first.",
+                "No Target Server Specified",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            return
+        }
+        
+        # Perform the connection test
+        Test-ConnectionWithFeedback -ServerName $serverName -ConnectionType "Target vCenter" -Button $btnTestTargetConnection
+        
+    } catch {
+        $errorMessage = "Error in Test Target Connection handler: $($_.Exception.Message)"
+        Write-Log $errorMessage -Level "ERROR"
+        
+        [System.Windows.Forms.MessageBox]::Show(
+            $errorMessage,
+            "Test Target Connection Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+$btnTestSourceConnection_Click = {
+        try {
+        Write-Log "Test Source Connection button clicked" -Level "DEBUG"
+        
+        # Get source server name from text box
+        $serverName = ""
+        
+        # Try to get server name from possible source text boxes
+        if ($script:txtSourceServer -and $script:txtSourceServer.Text) {
+            $serverName = $script:txtSourceServer.Text.Trim()
+        } elseif ($script:txtSourceVCenter -and $script:txtSourceVCenter.Text) {
+            $serverName = $script:txtSourceVCenter.Text.Trim()
+        } elseif ($script:sourceServerTextBox -and $script:sourceServerTextBox.Text) {
+            $serverName = $script:sourceServerTextBox.Text.Trim()
+        } else {
+            # Check all text boxes to find the source server field
+            $possibleSourceControls = @(
+                'txtSourceServer', 'txtSourceVCenter', 'txtSource', 'sourceServerTextBox',
+                'txtOriginServer', 'txtSrcVCenter', 'txtSrc'
+            )
+            
+            foreach ($controlName in $possibleSourceControls) {
+                $control = Get-Variable -Name $controlName -Scope Script -ErrorAction SilentlyContinue
+                if ($control -and $control.Value -and $control.Value.Text) {
+                    $serverName = $control.Value.Text.Trim()
+                    Write-Log "Found source server in control: $controlName" -Level "DEBUG"
+                    break
+                }
+            }
+        }
+        
+        if ([string]::IsNullOrWhiteSpace($serverName)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please enter the source vCenter server name or IP address first.",
+                "No Source Server Specified",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            return
+        }
+        
+        # Perform the connection test
+        Test-ConnectionWithFeedback -ServerName $serverName -ConnectionType "Source vCenter" -Button $btnTestSourceConnection
+        
+    } catch {
+        $errorMessage = "Error in Test Source Connection handler: $($_.Exception.Message)"
+        Write-Log $errorMessage -Level "ERROR"
+        
+        [System.Windows.Forms.MessageBox]::Show(
+            $errorMessage,
+            "Test Source Connection Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
+
 <#
 .SYNOPSIS
     vCenter Migration Workflow Manager - Core Functionality Wrapper
@@ -16,6 +190,54 @@
 
 # Ensure strict mode for better error handling
 Set-StrictMode -Version Latest
+
+#region Future-Proof Path Management
+
+# Helper functions using the PathManager
+function Get-ConfigurationFile {
+    return Get-AppFilePathFromPattern -PathName "Config" -PatternName "ConfigFile"
+}
+
+function Get-SettingsFile {
+    return Get-AppFilePathFromPattern -PathName "Config" -PatternName "SettingsFile"
+}
+
+function Get-ExportFile {
+    param([string]$BaseName = "export")
+    return Get-AppFilePath -PathName "Exports" -FileName "$BaseName`_$(Get-Date -Format 'yyyyMMdd_HHmmss').json"
+}
+
+function Get-ImportDirectory {
+    return Get-AppPath -PathName "Imports"
+}
+
+function Show-EditParameterDialog {
+    param(
+        [string]$ParameterName = "",
+        [string]$CurrentValue = "",
+        [string]$ParameterType = "String"
+    )
+    
+    # Load EditParam form using path manager
+    $designerPath = Get-AppFilePath -PathName "SubForms" -FileName "EditParam.designer.ps1" -EnsureDirectory $false
+    $logicPath = Get-AppFilePath -PathName "SubForms" -FileName "EditParam.ps1" -EnsureDirectory $false
+    
+    if (Test-Path $designerPath) { . $designerPath }
+    if (Test-Path $logicPath) { . $logicPath }
+    
+    # Rest of your EditParam logic...
+}
+
+function Initialize-FileDialogs {
+    # Set up file dialogs with proper paths
+    if ($script:openFileDialog1) {
+        $script:openFileDialog1.InitialDirectory = Get-AppPath -PathName "Root"
+    }
+    
+    # Set up other dialogs as needed
+}
+
+#endregion
 
 #region Win32 API and Form Management
 
@@ -269,72 +491,57 @@ function Initialize-ListViewColumns {
 #region Event Handler Registration
 
 function Register-EventHandlers {
-    <#
-    .SYNOPSIS
-        Register all event handlers for form controls with duplicate prevention
-    #>
     try {
-        Write-Log "Registering event handlers..." -Level "INFO"
+        Write-Log "Registering event handlers for form controls..." -Level "DEBUG"
         
-        # Check if already registered to prevent duplicates
-        if ($script:EventHandlersRegistered) {
-            Write-Log "Event handlers already registered, skipping..." -Level "DEBUG"
-            return
+        # Event handler for Test Source Connection button
+        if ($btnTestSourceConnection) {
+            $btnTestSourceConnection.add_Click($btnTestSourceConnection_Click)
+            Write-Host "✓ Registered: btnTestSourceConnection" -ForegroundColor Green
+        } else {
+            Write-Host "⚠ Not found: btnTestSourceConnection" -ForegroundColor Yellow
         }
         
-        # Connection tab event handlers
-        $btnTestSourceConnection.add_Click($btnTestSourceConnection_Click)
-        $btnTestTargetConnection.add_Click($btnTestTargetConnection_Click)
-        $btnSaveConnection.add_Click($btnSaveConnection_Click)
-        $btnLoadConnection.add_Click($btnLoadConnection_Click)
+        # Event handler for Test Target Connection button  
+        if ($btnTestTargetConnection) {
+            $btnTestTargetConnection.add_Click($btnTestTargetConnection_Click)
+            Write-Host "✓ Registered: btnTestTargetConnection" -ForegroundColor Green
+        } else {
+            Write-Host "⚠ Not found: btnTestTargetConnection" -ForegroundColor Yellow
+        }
         
-        # Scripts tab event handlers
-        $btnAddScript.add_Click($btnAddScript_Click)
-        $btnRemoveScript.add_Click($btnRemoveScript_Click)
-        $btnMoveUp.add_Click($btnMoveUp_Click)
-        $btnMoveDown.add_Click($btnMoveDown_Click)
-        $btnBrowse.add_Click($btnBrowse_Click)
-        $btnSaveScriptDetails.add_Click($btnSaveScriptDetails_Click)
+        # Event handler for Load Source button
+        if ($btnLoadSource) {
+            $btnLoadSource.add_Click($btnLoadSource_Click)
+            Write-Host "✓ Registered: btnLoadSource" -ForegroundColor Green
+        } else {
+            Write-Host "⚠ Not found: btnLoadSource" -ForegroundColor Yellow
+        }
         
-        # Parameter management event handlers
-        $btnAddParam.add_Click($btnAddParam_Click)
-        $btnEditParam.add_Click($btnEditParam_Click)
-        $btnRemoveParam.add_Click($btnRemoveParam_Click)
-        $btnDetectParams.add_Click($btnDetectParams_Click)
+        # Event handler for Load Target button
+        if ($btnLoadTarget) {
+            $btnLoadTarget.add_Click($btnLoadTarget_Click)
+            Write-Host "✓ Registered: btnLoadTarget" -ForegroundColor Green
+        } else {
+            Write-Host "⚠ Not found: btnLoadTarget" -ForegroundColor Yellow
+        }
         
-        # Execution tab event handlers
-        $btnRunAll.add_Click($btnRunAll_Click)
-        $btnRunSelected.add_Click($btnRunSelected_Click)
-        $btnStopExecution.add_Click($btnStopExecution_Click)
+        # Event handler for Execute button
+        if ($btnExecute) {
+            $btnExecute.add_Click($btnExecute_Click)
+            Write-Host "✓ Registered: btnExecute" -ForegroundColor Green
+        } else {
+            Write-Host "⚠ Not found: btnExecute" -ForegroundColor Yellow
+        }
         
-        # Log management event handlers
-        $btnRefreshLogs.add_Click($btnRefreshLogs_Click)
-        $btnClearLogs.add_Click($btnClearLogs_Click)
-        $btnExportLogs.add_Click($btnExportLogs_Click)
-        
-        # Bottom panel event handlers
-        $btnSaveAll.add_Click($btnSaveAll_Click)
-        $btnExit.add_Click($btnExit_Click)
-        $btnHelp.add_Click($btnHelp_Click)
-        
-        # ListView selection event handlers
-        $lvScripts.add_SelectedIndexChanged($lvScripts_SelectedIndexChanged)
-        $lvParameters.add_SelectedIndexChanged($lvParameters_SelectedIndexChanged)
-        
-        # Form event handlers
-        $mainForm.add_FormClosing($mainForm_FormClosing)
-        $mainForm.add_Load($mainForm_Load)
-        
-        # Mark as registered
-        $script:EventHandlersRegistered = $true
-        
-        Write-Log "Event handlers registered successfully" -Level "INFO"
+        Write-Log "Event handler registration completed" -Level "INFO"
         
     } catch {
         Write-Log "Error registering event handlers: $($_.Exception.Message)" -Level "ERROR"
         throw
     }
 }
+
 
 function Diagnose-EventHandlers {
     <#
@@ -466,6 +673,79 @@ function Update-UIState {
         
     } catch {
         Write-Log "Error updating UI state: $($_.Exception.Message)" -Level "ERROR"
+    }
+}
+
+# Enhanced Test Connection function with proper user feedback
+function Test-ConnectionWithFeedback {
+    param(
+        [string]$ServerName,
+        [string]$ConnectionType = "Unknown",
+        [int]$TimeoutSeconds = 5,
+        [System.Windows.Forms.Button]$Button
+    )
+    
+    try {
+        # Show that testing is in progress
+        $originalText = $Button.Text
+        $Button.Enabled = $false
+        $Button.Text = "Testing..."
+        $mainForm.Refresh()
+        
+        Write-Log "Testing $ConnectionType connection to: $ServerName" -Level "INFO"
+        
+        if ([string]::IsNullOrWhiteSpace($ServerName)) {
+            throw "Server name cannot be empty"
+        }
+        
+        # Perform the actual test (using Test-NetConnection for port 443 - vCenter default)
+        Write-Host "Testing connection to $ServerName..." -ForegroundColor Yellow
+        $testResult = Test-NetConnection -ComputerName $ServerName -Port 443 -InformationLevel Quiet -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+        
+        if ($testResult) {
+            $message = "✓ $ConnectionType connection to '$ServerName' successful!`n`nPort 443 (HTTPS) is accessible."
+            Write-Log "$ConnectionType connection test successful: $ServerName" -Level "INFO"
+            
+            [System.Windows.Forms.MessageBox]::Show(
+                $message,
+                "$ConnectionType Connection Test - Success",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+            
+            return $true
+        } else {
+            $message = "✗ $ConnectionType connection to '$ServerName' failed!`n`nPort 443 (HTTPS) is not accessible.`n`nPlease check:`n• Server name/IP is correct`n• vCenter server is running`n• Firewall allows port 443`n• Network connectivity"
+            Write-Log "$ConnectionType connection test failed: $ServerName" -Level "WARNING"
+            
+            [System.Windows.Forms.MessageBox]::Show(
+                $message,
+                "$ConnectionType Connection Test - Failed",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            
+            return $false
+        }
+        
+    } catch {
+        $errorMessage = "Error testing $ConnectionType connection: $($_.Exception.Message)"
+        Write-Log $errorMessage -Level "ERROR"
+        
+        [System.Windows.Forms.MessageBox]::Show(
+            "$ConnectionType Connection Test Error:`n`n$errorMessage",
+            "$ConnectionType Connection Test - Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+        
+        return $false
+        
+    } finally {
+        # Reset button state
+        $Button.Enabled = $true
+        $Button.Text = $originalText
+        $mainForm.Refresh()
     }
 }
 
@@ -651,77 +931,6 @@ $lvParameters_SelectedIndexChanged = {
 
 #region Connection Management
 
-$btnTestSourceConnection_Click = {
-    try {
-        Write-Log "Testing source vCenter connection..." -Level "INFO"
-        Invoke-TestSourceConnection
-    } catch {
-        Write-Log "Error in source connection test button: $($_.Exception.Message)" -Level "ERROR"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Error testing source connection: $($_.Exception.Message)",
-            "Connection Test Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-    }
-}
-
-$btnTestTargetConnection_Click = {
-    try {
-        Write-Log "Testing target vCenter connection..." -Level "INFO"
-        Invoke-TestTargetConnection
-    } catch {
-        Write-Log "Error in target connection test button: $($_.Exception.Message)" -Level "ERROR"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Error testing target connection: $($_.Exception.Message)",
-            "Connection Test Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-    }
-}
-
-$btnSaveConnection_Click = {
-    try {
-        Write-Log "Saving connection settings..." -Level "INFO"
-        Save-ConnectionSettings
-        [System.Windows.Forms.MessageBox]::Show(
-            "Connection settings saved successfully!",
-            "Settings Saved",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        )
-    } catch {
-        Write-Log "Error saving connection settings: $($_.Exception.Message)" -Level "ERROR"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Error saving connection settings: $($_.Exception.Message)",
-            "Save Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-    }
-}
-
-$btnLoadConnection_Click = {
-    try {
-        Write-Log "Loading connection settings..." -Level "INFO"
-        Load-ConnectionSettings
-        [System.Windows.Forms.MessageBox]::Show(
-            "Connection settings loaded successfully!",
-            "Settings Loaded",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        )
-    } catch {
-        Write-Log "Error loading connection settings: $($_.Exception.Message)" -Level "ERROR"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Error loading connection settings: $($_.Exception.Message)",
-            "Load Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-    }
-}
 
 #region Fixed Connection Functions
 
@@ -1091,21 +1300,6 @@ $btnMoveDown_Click = {
     }
 }
 
-$btnBrowse_Click = {
-    try {
-        Write-Log "Browsing for script file..." -Level "DEBUG"
-        Browse-ScriptFile
-    } catch {
-        Write-Log "Error in browse button: $($_.Exception.Message)" -Level "ERROR"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Error browsing for script: $($_.Exception.Message)",
-            "Browse Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-    }
-}
-
 $btnSaveScriptDetails_Click = {
     try {
         Write-Log "Saving script details..." -Level "INFO"
@@ -1145,7 +1339,7 @@ function Add-NewScript {
         $script:openFileDialog1.Filter = "PowerShell Scripts (*.ps1)|*.ps1|All Files (*.*)|*.*"
         $script:openFileDialog1.Title = "Select PowerShell Script"
         $script:openFileDialog1.Multiselect = $false
-        $script:openFileDialog1.InitialDirectory = $script:AppRoot
+        $script:openFileDialog1.InitialDirectory = Get-ApplicationPath -RelativePath "" -BaseLocation "Root"
         $script:openFileDialog1.RestoreDirectory = $true
         
         Write-Log "Showing file dialog..." -Level "DEBUG"
@@ -1953,7 +2147,7 @@ function Edit-SelectedParameter {
         $script:Config = $script:Config
         
         # Load and show edit parameter form
-        $editFormPath = Join-Path -Path $PSScriptRoot -ChildPath "EditParameterForm.ps1"
+        $editFormPath = Get-ApplicationPath -RelativePath "EditParameterForm.ps1" -BaseLocation "SubForms"
         if (Test-Path -Path $editFormPath) {
             . $editFormPath
             

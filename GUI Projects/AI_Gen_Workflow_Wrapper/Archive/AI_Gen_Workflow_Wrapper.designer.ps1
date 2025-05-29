@@ -500,6 +500,7 @@ $btnBrowse.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([Sys
 $btnBrowse.TabIndex = [System.Int32]2
 $btnBrowse.Text = [System.String]'Browse...'
 $btnBrowse.UseVisualStyleBackColor = $true
+$btnBrowse.add_Click($btnBrowse_Click)
 #
 #lblScriptDescription
 #
@@ -908,6 +909,7 @@ $btnSaveAll.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([Sy
 $btnSaveAll.TabIndex = [System.Int32]0
 $btnSaveAll.Text = [System.String]'Save All Settings'
 $btnSaveAll.UseVisualStyleBackColor = $true
+$btnSaveAll.add_Click($btnSaveAll_Click)
 #
 #btnExit
 #
@@ -917,6 +919,7 @@ $btnExit.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([Syste
 $btnExit.TabIndex = [System.Int32]1
 $btnExit.Text = [System.String]'Exit'
 $btnExit.UseVisualStyleBackColor = $true
+$btnExit.add_Click($btnExit_Click)
 #
 #btnHelp
 #
@@ -926,6 +929,7 @@ $btnHelp.Size = (New-Object -TypeName System.Drawing.Size -ArgumentList @([Syste
 $btnHelp.TabIndex = [System.Int32]2
 $btnHelp.Text = [System.String]'Help'
 $btnHelp.UseVisualStyleBackColor = $true
+$btnHelp.add_Click($btnHelp_Click)
 #
 #openFileDialog1
 #
@@ -1044,3 +1048,7 @@ Add-Member -InputObject $mainForm -Name openFileDialog1 -Value $openFileDialog1 
 Add-Member -InputObject $mainForm -Name btnHelp -Value $btnHelp -MemberType NoteProperty
 }
 . InitializeComponent
+# Now set up the aliases AFTER the form is built
+$AI_Gen_Workflow_Wrapper = $mainForm
+$Global:AI_Gen_Workflow_Wrapper = $mainForm
+$Global:MainForm = $mainForm

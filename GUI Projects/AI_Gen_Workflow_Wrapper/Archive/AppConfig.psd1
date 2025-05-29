@@ -93,7 +93,7 @@
         EnableFileLogging = $true
         EnableConsoleLogging = $true
         MaxLogFileSizeMB = 10
-        MaxLogFiles = 5
+        MaxLogFiles = 2
         DateFormat = 'yyyy-MM-dd HH:mm:ss'
         RotateLogsOnStartup = $false
     }

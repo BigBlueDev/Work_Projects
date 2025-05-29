@@ -8,7 +8,7 @@
     <AssemblyName>MyApplication</AssemblyName>
     <Name>AI_Gen_Workflow_Wrapper</Name>
     <PackageAsExecutable>False</PackageAsExecutable>
-    <PackageEntryPoint>global_init.ps1</PackageEntryPoint>
+    <PackageEntryPoint>launch.ps1</PackageEntryPoint>
     <Bundle>False</Bundle>
     <Obfuscate>False</Obfuscate>
     <HideConsoleWindow>False</HideConsoleWindow>
@@ -16,7 +16,7 @@
     <PackageModules>False</PackageModules>
     <HighDPISupport>False</HighDPISupport>
     <StartupFile>Launch.ps1</StartupFile>
-    <WorkingDirectory>gistics Agency\Documents\All Scripts\GUI Projects\AI_Gen_Workflow_Wrapper\</WorkingDirectory>
+    <WorkingDirectory>C:\Users\DMM0090\OneDrive - Defense Logistics Agency\Documents\All Scripts\Work_Projects\GUI Projects\AI_Gen_Workflow_Wrapper</WorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -62,26 +62,26 @@
     </Compile>
     <Compile Include="AI_Gen_Workflow_Wrapper.ps1">
       <SubType>Form</SubType>
-      <Resource>True</Resource>
     </Compile>
-    <Compile Include="EditParameterForm.designer.ps1">
+    <Compile Include="AppConfig.psd1" />
+    <Compile Include="EditParam.designer.ps1">
       <SubType>Code</SubType>
-      <DependentUpon>EditParameterForm.ps1</DependentUpon>
+      <DependentUpon>EditParam.ps1</DependentUpon>
     </Compile>
-    <Compile Include="EditParameterForm.ps1">
+    <Compile Include="EditParam.ps1">
       <SubType>Form</SubType>
-      <Resource>True</Resource>
     </Compile>
-    <Compile Include="EditParameterForm.resources.ps1" />
     <Compile Include="Globals.ps1" />
-    <Compile Include="Launch.ps1" />
+    <Compile Include="MigrateToNestedStructure.ps1" />
+    <Compile Include="ModuleManager.ps1" />
+    <Compile Include="PathManager.ps1" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="AI_Gen_Workflow_Wrapper.resx">
       <DependentUpon>AI_Gen_Workflow_Wrapper.ps1</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="EditParameterForm.resx">
-      <DependentUpon>EditParameterForm.ps1</DependentUpon>
+    <EmbeddedResource Include="EditParam.resx">
+      <DependentUpon>EditParam.ps1</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\PowerShell Tools for Visual Studio\PowerShellTools.targets" Condition="Exists('$(MSBuildExtensionsPath)\PowerShell Tools for Visual Studio\PowerShellTools.targets')" />
