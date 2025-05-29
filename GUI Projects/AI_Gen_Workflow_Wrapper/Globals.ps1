@@ -1116,31 +1116,100 @@ function Initialize-MainForm {
         return $false
     }
 }
-#region Application Initialization
-function Initialize-Application {
+#region Form Initialization
+function Initialize-MainForm {
     try {
-        Write-Log "Initializing application..." -Level "INFO" -UpdateUI
+        Write-Log "=== Starting Initialize-MainForm ===" -Level "INFO"
+        Write-Host "=== DEBUGGING Initialize-MainForm ===" -ForegroundColor Magenta
         
-        # Load configuration
-        Load-AppConfig | Out-Null
+        # Check if InitializeComponent exists
+        $initComponentExists = Get-Command InitializeComponent -ErrorAction SilentlyContinue
+        Write-Log "InitializeComponent command exists: $($null -ne $initComponentExists)" -Level "DEBUG"
+        Write-Host "InitializeComponent exists: $($null -ne $initComponentExists)" -ForegroundColor Yellow
         
-        # Initialize UI
-        Update-ScriptsList
-        Update-ExecutionUI -Reset
-        
-        # Load any saved logs into UI
-        if ($Global:MainForm.btnRefreshLogs_Click) {
-            & $Global:MainForm.btnRefreshLogs_Click
+        if ($initComponentExists) {
+            Write-Log "Calling InitializeComponent..." -Level "INFO"
+            Write-Host "Calling InitializeComponent..." -ForegroundColor Yellow
+            
+            . InitializeComponent
+            
+            Write-Log "InitializeComponent executed successfully" -Level "INFO"
+            Write-Host "InitializeComponent called successfully" -ForegroundColor Green
+        } else {
+            Write-Log "InitializeComponent function not found!" -Level "ERROR"
+            Write-Host "ERROR: InitializeComponent function not found!" -ForegroundColor Red
+            return $false
         }
         
-        Update-StatusStrip "Application ready"
-        Write-Log "Application initialization complete" -Level "INFO" -UpdateUI
+        # Check if mainForm variable exists
+        $mainFormVar = Get-Variable -Name "mainForm" -ErrorAction SilentlyContinue
+        Write-Log "mainForm variable exists: $($null -ne $mainFormVar)" -Level "DEBUG"
+        Write-Host "mainForm variable exists: $($null -ne $mainFormVar)" -ForegroundColor Yellow
+        
+        if (-not $mainFormVar) {
+            Write-Log "mainForm variable not found after InitializeComponent!" -Level "ERROR"
+            Write-Host "ERROR: mainForm variable not found!" -ForegroundColor Red
+            return $false
+        }
+        
+        $formValue = $mainFormVar.Value
+        Write-Log "mainForm value is null: $($null -eq $formValue)" -Level "DEBUG"
+        Write-Host "mainForm value is null: $($null -eq $formValue)" -ForegroundColor Yellow
+        
+        if (-not $formValue) {
+            Write-Log "mainForm variable is null!" -Level "ERROR"
+            Write-Host "ERROR: mainForm variable is null!" -ForegroundColor Red
+            return $false
+        }
+        
+        # Check the type
+        $formType = $formValue.GetType().FullName
+        Write-Log "mainForm type: $formType" -Level "DEBUG"
+        Write-Host "mainForm type: $formType" -ForegroundColor Yellow
+        
+        if ($formType -ne "System.Windows.Forms.Form") {
+            Write-Log "mainForm is not a valid Windows Form! Type: $formType" -Level "ERROR"
+            Write-Host "ERROR: mainForm is not a Form! Type: $formType" -ForegroundColor Red
+            return $false
+        }
+        
+        # Check if disposed
+        $isDisposed = $formValue.IsDisposed
+        Write-Log "mainForm is disposed: $isDisposed" -Level "DEBUG"
+        Write-Host "mainForm is disposed: $isDisposed" -ForegroundColor Yellow
+        
+        if ($isDisposed) {
+            Write-Log "mainForm is disposed!" -Level "ERROR"
+            Write-Host "ERROR: mainForm is disposed!" -ForegroundColor Red
+            return $false
+        }
+        
+        # Get form properties
+        $formText = $formValue.Text
+        $formSize = $formValue.Size
+        Write-Log "Form Text: '$formText', Size: $formSize" -Level "INFO"
+        Write-Host "Form Text: '$formText', Size: $formSize" -ForegroundColor Cyan
+        
+        # Create global references
+        $Global:MainForm = $formValue
+        $Global:AI_Gen_Workflow_Wrapper = $formValue
+        
+        Write-Log "Global form references created successfully" -Level "INFO"
+        Write-Host "? Global form references created" -ForegroundColor Green
+        
+        Write-Log "=== Initialize-MainForm completed successfully ===" -Level "INFO"
+        Write-Host "=== Initialize-MainForm SUCCESS ===" -ForegroundColor Green
+        
+        return $true
         
     } catch {
-        Write-Log "Error during application initialization: $_" -Level "ERROR" -UpdateUI
+        Write-Log "=== Initialize-MainForm FAILED: $_ ===" -Level "ERROR"
+        Write-Host "=== Initialize-MainForm ERROR: $_ ===" -ForegroundColor Red
+        return $false
     }
 }
 #endregion
+
 
 # Export functions for use in other scripts
 Write-Log "Globals.ps1 loaded successfully" -Level "INFO"
