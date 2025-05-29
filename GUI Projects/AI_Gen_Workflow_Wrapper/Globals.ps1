@@ -258,7 +258,10 @@ function Update-ScriptsList {
             $item = New-Object System.Windows.Forms.ListViewItem
             $item.Text = Split-Path $script.Path -Leaf
             $item.SubItems.Add($script.Description) | Out-Null
-            $item.SubItems.Add(if ($script.Enabled) { "Yes" } else { "No" }) | Out-Null
+            
+            # Fix: Evaluate the condition first, then add the result
+            $enabledText = if ($script.Enabled) { "Yes" } else { "No" }
+            $item.SubItems.Add($enabledText) | Out-Null
             
             # Check script status
             $status = if (Test-Path $script.Path) { "Found" } else { "Missing" }
@@ -281,6 +284,7 @@ function Update-ScriptsList {
         Write-Log "Error updating scripts list: $_" -Level "ERROR" -UpdateUI
     }
 }
+
 
 function Get-SelectedScript {
     try {
@@ -607,7 +611,7 @@ $btnDetectParams_Click = {
                     $paramLines = $paramBlock -split ','
                     foreach ($line in $paramLines) {
                         if ($line -match '\$(\w+)') {
-                            $detectedParams += $matches_[1]
+                            $detectedParams += $Matches[1]  # ? Correct
                         }
                     }
                 }
@@ -1080,7 +1084,38 @@ function Register-EventHandlers {
     }
 }
 #endregion
-
+function Initialize-MainForm {
+    try {
+        Write-Log "Initializing main form..." -Level "INFO"
+        
+        # Call InitializeComponent if it hasn't been called
+        if (Get-Command InitializeComponent -ErrorAction SilentlyContinue) {
+            . InitializeComponent
+            Write-Log "InitializeComponent executed" -Level "DEBUG"
+        }
+        
+        # Check if mainForm exists
+        if (-not $mainForm) {
+            throw "mainForm variable not found"
+        }
+        
+        # Verify it's a valid form
+        if ($mainForm.GetType().FullName -ne "System.Windows.Forms.Form") {
+            throw "mainForm is not a valid Windows Form"
+        }
+        
+        # Create global references
+        $Global:MainForm = $mainForm
+        $Global:AI_Gen_Workflow_Wrapper = $mainForm
+        
+        Write-Log "Main form initialized: $($mainForm.Text)" -Level "INFO"
+        return $true
+        
+    } catch {
+        Write-Log "Failed to initialize main form: $_" -Level "ERROR"
+        return $false
+    }
+}
 #region Application Initialization
 function Initialize-Application {
     try {

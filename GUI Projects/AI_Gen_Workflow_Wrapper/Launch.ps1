@@ -196,7 +196,19 @@ if (Test-Path $globalsFile) {
 # Load form components with enhanced tracking
 Write-Host "`n--- Loading Form Designer ---" -ForegroundColor Cyan
 $loadSuccess = $loadSuccess -and (Import-AppFile -FileName "AI_Gen_Workflow_Wrapper.designer.ps1" -Description "Form Designer")
-
+if ($loadSuccess) {
+    Write-Host "`n--- Initializing Main Form ---" -ForegroundColor Cyan
+    if (Get-Command Initialize-MainForm -ErrorAction SilentlyContinue) {
+        if (Initialize-MainForm) {
+            Write-Host "✓ Main form initialized successfully" -ForegroundColor Green
+        } else {
+            Write-Host "✗ Failed to initialize main form" -ForegroundColor Red
+            $loadSuccess = $false
+        }
+    } else {
+        Write-Host "⚠ Initialize-MainForm function not found in Globals.ps1" -ForegroundColor Yellow
+    }
+}
 # FORM VARIABLE FIX: Create expected form variables after designer loads
 if ($loadSuccess) {
     Write-Host "`n--- Creating Form Variable Aliases ---" -ForegroundColor Cyan
