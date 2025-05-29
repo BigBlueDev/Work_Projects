@@ -1,3 +1,19 @@
+$btnBrowse_Click = {
+    try {
+        Write-Log "Browsing for script file..." -Level "DEBUG"
+        Browse-ScriptFile
+    } 
+    catch {
+        Write-Log "Error in browse button: $($_.Exception.Message)" -Level "ERROR"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error browsing for script: $($_.Exception.Message)",
+            "Browse Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    }
+}
+
 $btnLoadConnection_Click = {
     try {
         Write-Log "Loading connection settings..." -Level "INFO"
@@ -8,7 +24,8 @@ $btnLoadConnection_Click = {
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Information
         )
-    } catch {
+    } 
+    catch {
         Write-Log "Error loading connection settings: $($_.Exception.Message)" -Level "ERROR"
         [System.Windows.Forms.MessageBox]::Show(
             "Error loading connection settings: $($_.Exception.Message)",
@@ -1277,21 +1294,6 @@ $btnMoveDown_Click = {
         [System.Windows.Forms.MessageBox]::Show(
             "Error moving script down: $($_.Exception.Message)",
             "Move Script Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-    }
-}
-
-$btnBrowse_Click = {
-    try {
-        Write-Log "Browsing for script file..." -Level "DEBUG"
-        Browse-ScriptFile
-    } catch {
-        Write-Log "Error in browse button: $($_.Exception.Message)" -Level "ERROR"
-        [System.Windows.Forms.MessageBox]::Show(
-            "Error browsing for script: $($_.Exception.Message)",
-            "Browse Error",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Error
         )
